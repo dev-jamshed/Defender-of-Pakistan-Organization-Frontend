@@ -39,7 +39,6 @@ const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, active: true },
   { name: 'Members Management', icon: UsersRound },
   { name: 'Membership Applications', icon: FileText },
-  { name: 'Membership Cards', icon: CreditCard },
   { name: 'Designation Applications', icon: ShieldCheck },
   { name: 'Active Designations', icon: BadgeCheck },
   { name: 'Designation Renewals', icon: CalendarDays },
@@ -106,13 +105,13 @@ type ApiState = {
   reload: () => Promise<void>
   createRecord: (resource: string, payload: Record<string, unknown>) => Promise<DpoRecord>
   updateRecord: (resource: string, id: string, payload: Record<string, unknown>) => Promise<DpoRecord>
+  deleteRecord: (resource: string, id: string) => Promise<void>
   runAction: (resource: string, id: string, action: string, payload?: Record<string, unknown>) => Promise<unknown>
 }
 
 const moduleResources: Record<string, string[]> = {
   'Members Management': ['members'],
   'Membership Applications': ['membership-applications'],
-  'Membership Cards': ['membership-cards'],
   'Designation Applications': ['designation-applications'],
   'Active Designations': ['active-designations'],
   'Designation Renewals': ['designation-renewals'],
@@ -153,6 +152,13 @@ async function apiSend<T>(path: string, method: 'POST' | 'PATCH', payload: Recor
   return response.json() as Promise<T>
 }
 
+async function apiDelete(path: string): Promise<void> {
+  const response = await fetch(`${API_BASE}${path}`, { method: 'DELETE' })
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`)
+  }
+}
+
 function useDpoApi(): ApiState {
   const [state, setState] = useState<ApiState>({
     dashboard: null,
@@ -167,6 +173,9 @@ function useDpoApi(): ApiState {
       throw new Error('API is not ready')
     },
     updateRecord: async () => {
+      throw new Error('API is not ready')
+    },
+    deleteRecord: async () => {
       throw new Error('API is not ready')
     },
     runAction: async () => {
@@ -220,6 +229,12 @@ function useDpoApi(): ApiState {
     return record
   }
 
+  const deleteRecord = async (resource: string, id: string) => {
+    await apiDelete(`/admin/${resource}/${id}`)
+    await reload()
+    setState((current) => ({ ...current, notice: `${resource} record deleted` }))
+  }
+
   const runAction = async (resource: string, id: string, action: string, payload: Record<string, unknown> = {}) => {
     const result = await apiSend<unknown>(`/admin/${resource}/${id}/actions/${action}`, 'POST', payload)
     await reload()
@@ -237,7 +252,7 @@ function useDpoApi(): ApiState {
     }
   }, [])
 
-  return { ...state, reload, createRecord, updateRecord, runAction }
+  return { ...state, reload, createRecord, updateRecord, deleteRecord, runAction }
 }
 
 function getInitialNav() {
@@ -852,8 +867,17 @@ function ModuleScreen({ moduleName, apiState, searchQuery }: { moduleName: strin
   if (moduleName === 'Membership Applications') {
     return <MembershipApplicationsScreen apiState={apiState} searchQuery={searchQuery} />
   }
+  if (moduleName === 'Designation Applications') {
+    return <DesignationApplicationsScreen apiState={apiState} searchQuery={searchQuery} />
+  }
+  if (moduleName === 'Active Designations') {
+    return <ActiveDesignationsScreen apiState={apiState} searchQuery={searchQuery} />
+  }
   if (moduleName === 'Website CMS') {
     return <WebsiteCmsScreen apiState={apiState} searchQuery={searchQuery} />
+  }
+  if (moduleName === 'Gallery Management') {
+    return <GalleryManagementScreen apiState={apiState} searchQuery={searchQuery} />
   }
 
   return (
@@ -918,19 +942,14 @@ function MembersProductionScreen({ apiState, searchQuery }: { apiState: ApiState
   const [province, setProvince] = useState('All Provinces')
   const [district, setDistrict] = useState('All Districts')
   const [drawerRecord, setDrawerRecord] = useState<DpoRecord | null>(null)
+  const [cardRecord, setCardRecord] = useState<DpoRecord | null>(null)
   const [creating, setCreating] = useState(false)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const members = apiState.records.members ?? []
-  const today = new Date()
-  const inThirtyDays = new Date(today)
-  inThirtyDays.setDate(today.getDate() + 30)
+  const membershipCards = apiState.records['membership-cards'] ?? []
   const activeMembers = members.filter((member) => normalizeStatus(member.status) === 'active')
   const pendingMembers = members.filter((member) => ['pending', 'underreview', 'requestinfo'].includes(normalizeStatus(member.status)))
-  const expiringSoon = members.filter((member) => {
-    const expiry = new Date(toText(member.expiryDate))
-    return Number.isFinite(expiry.getTime()) && expiry >= today && expiry <= inThirtyDays
-  })
   const districts = ['All Districts', ...Array.from(new Set(members.map((member) => toText(member.district)).filter(Boolean)))]
   const provinces = ['All Provinces', ...Array.from(new Set(members.map((member) => toText(member.province ?? member.country)).filter(Boolean)))]
   const visibleMembers = members.filter((member) => {
@@ -952,11 +971,28 @@ function MembersProductionScreen({ apiState, searchQuery }: { apiState: ApiState
     const paymentStatus = normalizeStatus(member.paymentStatus)
     return ['approved', 'active'].includes(memberStatus) && ['paid', 'approved', 'verified'].includes(paymentStatus)
   }
+  const cardForMember = (member: DpoRecord) => membershipCards.find((card) =>
+    toText(card.membershipNumber) === toText(member.membershipNumber) ||
+    toText(card.name) === toText(member.name),
+  )
   const handleMemberAction = async (member: DpoRecord, action: 'generate' | 'approve' | 'reject' | 'suspend' | 'reactivate' | 'markPaid' | 'markPending') => {
     setOpenMenuId(null)
     if (action === 'generate') {
-      await apiState.runAction('members', member.id, 'approve')
-      setActionMessage(`Card generation started for ${toText(member.name) || 'member'}.`)
+      const existingCard = cardForMember(member)
+      if (existingCard) {
+        setCardRecord(existingCard)
+        return
+      }
+      const card = await apiState.createRecord('membership-cards', {
+        cardNumber: `CARD-${String(membershipCards.length + 1).padStart(6, '0')}`,
+        membershipNumber: member.membershipNumber,
+        name: member.name,
+        templateVersion: 'Membership Card v2.1',
+        qrValue: `DPO:${toText(member.membershipNumber)}`,
+        status: 'active',
+      })
+      setCardRecord(card)
+      setActionMessage(`Card generated for ${toText(member.name) || 'member'}.`)
       return
     }
     if (action === 'approve') {
@@ -994,7 +1030,7 @@ function MembersProductionScreen({ apiState, searchQuery }: { apiState: ApiState
         <MemberKpi icon={UsersRound} label="Total Members" value={members.length} note="All registered members" tone="success" />
         <MemberKpi icon={CircleCheck} label="Active Members" value={activeMembers.length} note={`${members.length ? Math.round((activeMembers.length / members.length) * 100) : 0}% of total members`} tone="success" />
         <MemberKpi icon={Clock} label="Pending Review" value={pendingMembers.length} note="Awaiting verification" tone="warning" />
-        <MemberKpi icon={CalendarDays} label="Expiring Soon" value={expiringSoon.length} note="Within next 30 days" tone="danger" />
+        <MemberKpi icon={CreditCard} label="Cards Generated" value={membershipCards.length} note="Managed inside members" tone="success" />
       </section>
 
       <div className="members-workspace">
@@ -1019,7 +1055,7 @@ function MembersProductionScreen({ apiState, searchQuery }: { apiState: ApiState
             <table className="production-members-table">
               <thead>
                 <tr>
-                  {['Member ID', 'Name', 'CNIC', 'Phone', 'District', 'Type', 'Payment', 'Status', 'Expiry', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}
+                  {['Member ID', 'Name', 'CNIC', 'Phone', 'District', 'Payment', 'Status', 'Expiry', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -1030,15 +1066,14 @@ function MembersProductionScreen({ apiState, searchQuery }: { apiState: ApiState
                     <td>{toText(member.cnicMasked)}</td>
                     <td>{toText(member.phone)}</td>
                     <td>{toText(member.district)}</td>
-                    <td>{toText(member.membershipType)}</td>
                     <td><Status>{titleStatus(member.paymentStatus)}</Status></td>
                     <td><Status>{titleStatus(member.status)}</Status></td>
                     <td>{formatDate(member.expiryDate)}</td>
                     <td>
                       <div className="member-row-actions">
-                        {canGenerateCard(member) && (
+                        {(canGenerateCard(member) || cardForMember(member)) && (
                           <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); void handleMemberAction(member, 'generate') }}>
-                            <CreditCard size={14} /> Generate Card
+                            <CreditCard size={14} /> {cardForMember(member) ? 'View Card' : 'Generate Card'}
                           </button>
                         )}
                         <button className="icon-table-btn view-btn" type="button" aria-label="View member" onClick={(event) => { event.stopPropagation(); setDrawerRecord(member) }}><Eye size={16} /></button>
@@ -1078,6 +1113,7 @@ function MembersProductionScreen({ apiState, searchQuery }: { apiState: ApiState
       </div>
 
       {drawerRecord && <RecordDrawer title="Members Management" resource="members" record={drawerRecord} apiState={apiState} onClose={() => setDrawerRecord(null)} />}
+      {cardRecord && <RecordDrawer title="Membership Card" resource="membership-cards" record={cardRecord} apiState={apiState} onClose={() => setCardRecord(null)} />}
       {creating && <CreateRecordModal resource="members" apiState={apiState} onClose={() => setCreating(false)} />}
       {actionMessage && (
         <div className="action-toast" role="status">
@@ -1105,7 +1141,6 @@ function MemberKpi({ icon: Icon, label, value, note, tone }: { icon: LucideIcon;
 function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
   const [status, setStatus] = useState('All')
   const [paymentStatus, setPaymentStatus] = useState('All')
-  const [membershipType, setMembershipType] = useState('All')
   const [district, setDistrict] = useState('All Districts')
   const [drawerRecord, setDrawerRecord] = useState<DpoRecord | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -1117,43 +1152,44 @@ function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: Api
     const matchesSearch = searchQuery ? searchableText(application).includes(searchQuery.toLowerCase()) : true
     const matchesStatus = status === 'All' || normalizeStatus(application.status) === normalizeStatus(status)
     const matchesPayment = paymentStatus === 'All' || normalizeStatus(application.paymentStatus) === normalizeStatus(paymentStatus)
-    const matchesType = membershipType === 'All' || toText(application.membershipType) === membershipType
     const matchesDistrict = district === 'All Districts' || toText(application.district) === district
-    return matchesSearch && matchesStatus && matchesPayment && matchesType && matchesDistrict
+    return matchesSearch && matchesStatus && matchesPayment && matchesDistrict
   })
-  const typeOptions = ['All', ...Array.from(new Set(applications.map((item) => toText(item.membershipType)).filter(Boolean)))]
   const districtOptions = ['All Districts', ...Array.from(new Set(applications.map((item) => toText(item.district)).filter(Boolean)))]
   const documentNeeds = applications.filter((item) => documentSummary(item).tone !== 'success').length
   const paymentVerified = applications.filter((item) => ['paid', 'verified', 'approved'].includes(normalizeStatus(item.paymentStatus))).length
   const rejected = applications.filter((item) => normalizeStatus(item.status) === 'rejected').length
-  const canApproveApplication = (application: DpoRecord) => ['paid', 'verified', 'approved'].includes(normalizeStatus(application.paymentStatus)) && normalizeStatus(application.status) !== 'rejected'
   const exportApplications = () => downloadCsv('Membership Applications', visibleApplications.map((record) => ({
-    cells: ['applicationNumber', 'name', 'cnicMasked', 'phone', 'membershipType', 'district', 'paymentStatus', 'status', 'createdAt'].map((key) => formatCompactValue(record[key])),
+    cells: ['applicationNumber', 'name', 'cnicMasked', 'phone', 'district', 'paymentStatus', 'status', 'createdAt'].map((key) => formatCompactValue(record[key])),
   })))
   const handleApplicationAction = async (application: DpoRecord, action: 'approve' | 'reject' | 'requestInfo' | 'markPaid' | 'markPending') => {
     setOpenMenuId(null)
-    if (action === 'approve') {
-      await apiState.runAction('membership-applications', application.id, 'approve')
-      setActionMessage(`${toText(application.name) || 'Application'} approved.`)
-      return
+    try {
+      if (action === 'approve') {
+        await apiState.updateRecord('membership-applications', application.id, { status: 'approved' })
+        setActionMessage(`${toText(application.name) || 'Application'} approved.`)
+        return
+      }
+      if (action === 'reject') {
+        await apiState.updateRecord('membership-applications', application.id, { status: 'rejected' })
+        setActionMessage(`${toText(application.name) || 'Application'} rejected.`)
+        return
+      }
+      if (action === 'markPaid') {
+        await apiState.updateRecord('membership-applications', application.id, { paymentStatus: 'paid' })
+        setActionMessage(`Payment marked paid for ${toText(application.name) || 'application'}.`)
+        return
+      }
+      if (action === 'markPending') {
+        await apiState.updateRecord('membership-applications', application.id, { paymentStatus: 'pending' })
+        setActionMessage(`Payment marked pending for ${toText(application.name) || 'application'}.`)
+        return
+      }
+      await apiState.updateRecord('membership-applications', application.id, { status: 'requestInfo' })
+      setActionMessage(`Information requested from ${toText(application.name) || 'applicant'}.`)
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Application action failed.')
     }
-    if (action === 'reject') {
-      await apiState.runAction('membership-applications', application.id, 'reject')
-      setActionMessage(`${toText(application.name) || 'Application'} rejected.`)
-      return
-    }
-    if (action === 'markPaid') {
-      await apiState.updateRecord('membership-applications', application.id, { paymentStatus: 'paid' })
-      setActionMessage(`Payment marked paid for ${toText(application.name) || 'application'}.`)
-      return
-    }
-    if (action === 'markPending') {
-      await apiState.updateRecord('membership-applications', application.id, { paymentStatus: 'pending' })
-      setActionMessage(`Payment marked pending for ${toText(application.name) || 'application'}.`)
-      return
-    }
-    await apiState.updateRecord('membership-applications', application.id, { status: 'requestInfo' })
-    setActionMessage(`Information requested from ${toText(application.name) || 'applicant'}.`)
   }
 
   return (
@@ -1182,12 +1218,6 @@ function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: Api
                 {paymentOptions.map((item) => <option key={item}>{item}</option>)}
               </select>
             </label>
-            <label className="filter-field wide">
-              <span>Membership Type</span>
-              <select value={membershipType} onChange={(event) => setMembershipType(event.target.value)} aria-label="Membership type">
-                {typeOptions.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </label>
             <label className="filter-field">
               <span>District</span>
               <select value={district} onChange={(event) => setDistrict(event.target.value)} aria-label="District">
@@ -1205,7 +1235,7 @@ function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: Api
             <table className="production-members-table applications-table">
               <thead>
                 <tr>
-                  {['Application ID', 'Applicant', 'CNIC', 'Phone', 'Type', 'District', 'Payment', 'Documents', 'Status', 'Submitted', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}
+                  {['Application ID', 'Applicant', 'CNIC', 'Phone', 'District', 'Payment', 'Documents', 'Status', 'Submitted', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -1213,13 +1243,14 @@ function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: Api
                   <tr key={application.id} onClick={() => setDrawerRecord(application)}>
                     {(() => {
                       const docs = documentSummary(application)
+                      const isApproved = normalizeStatus(application.status) === 'approved'
+                      const isRejected = normalizeStatus(application.status) === 'rejected'
                       return (
                         <>
                     <td>{toText(application.applicationNumber ?? application.id)}</td>
                     <td><b>{toText(application.name)}</b><small>{toText(application.country) || 'Pakistan'}</small></td>
                     <td>{toText(application.cnicMasked)}</td>
                     <td>{toText(application.phone)}</td>
-                    <td>{toText(application.membershipType)}</td>
                     <td>{toText(application.district)}</td>
                     <td><Status>{titleStatus(application.paymentStatus)}</Status></td>
                     <td><Tag tone={docs.tone}>{docs.label}</Tag></td>
@@ -1227,12 +1258,12 @@ function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: Api
                     <td>{formatDate(application.createdAt)}</td>
                     <td>
                       <div className="member-row-actions">
-                        {canApproveApplication(application) && (
+                        {!isApproved && (
                           <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); void handleApplicationAction(application, 'approve') }}>
                             <CircleCheck size={14} /> Approve
                           </button>
                         )}
-                        <button className="reject-row" type="button" onClick={(event) => { event.stopPropagation(); void handleApplicationAction(application, 'reject') }}>Reject</button>
+                        {!isRejected && <button className="reject-row" type="button" onClick={(event) => { event.stopPropagation(); void handleApplicationAction(application, 'reject') }}>Reject</button>}
                         <button className="icon-table-btn view-btn" type="button" aria-label="View application" onClick={(event) => { event.stopPropagation(); setDrawerRecord(application) }}><Eye size={16} /></button>
                         <div className="row-menu-wrap">
                           <button className="icon-table-btn more-btn" type="button" aria-label="More application actions" onClick={(event) => { event.stopPropagation(); setOpenMenuId(openMenuId === application.id ? null : application.id) }}>
@@ -1240,8 +1271,8 @@ function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: Api
                           </button>
                           {openMenuId === application.id && (
                             <div className="row-action-menu" onClick={(event) => event.stopPropagation()}>
-                              <button type="button" onClick={() => void handleApplicationAction(application, 'approve')}>Approve</button>
-                              <button type="button" onClick={() => void handleApplicationAction(application, 'reject')}>Reject</button>
+                              {!isApproved && <button type="button" onClick={() => void handleApplicationAction(application, 'approve')}>Approve</button>}
+                              {!isRejected && <button type="button" onClick={() => void handleApplicationAction(application, 'reject')}>Reject</button>}
                               <button type="button" onClick={() => void handleApplicationAction(application, 'requestInfo')}>Request Info</button>
                               <button type="button" onClick={() => void handleApplicationAction(application, 'markPaid')}>Payment Paid</button>
                               <button type="button" onClick={() => void handleApplicationAction(application, 'markPending')}>Payment Pending</button>
@@ -1278,6 +1309,871 @@ function MembershipApplicationsScreen({ apiState, searchQuery }: { apiState: Api
         </div>
       )}
     </div>
+  )
+}
+
+function DesignationApplicationsScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
+  const [status, setStatus] = useState('All')
+  const [province, setProvince] = useState('All Provinces')
+  const [district, setDistrict] = useState('All Districts')
+  const [designation, setDesignation] = useState('All Designations')
+  const [paymentStatus, setPaymentStatus] = useState('All Payments')
+  const [selectedApplication, setSelectedApplication] = useState<DpoRecord | null>(null)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const applications = apiState.records['designation-applications'] ?? []
+  const visibleApplications = applications.filter((application) => {
+    const matchesSearch = searchQuery ? searchableText(application).includes(searchQuery.toLowerCase()) : true
+    const matchesStatus = status === 'All' || normalizeStatus(application.status) === normalizeStatus(status)
+    const matchesProvince = province === 'All Provinces' || toText(application.province) === province
+    const matchesDistrict = district === 'All Districts' || toText(application.district) === district
+    const matchesDesignation = designation === 'All Designations' || toText(application.designation) === designation
+    const matchesPayment = paymentStatus === 'All Payments' || normalizeStatus(application.paymentStatus) === normalizeStatus(paymentStatus)
+    return matchesSearch && matchesStatus && matchesProvince && matchesDistrict && matchesDesignation && matchesPayment
+  })
+  const activeApplication = selectedApplication ?? visibleApplications[0]
+  const statusOptions = ['All', ...Array.from(new Set(applications.map((item) => titleStatus(item.status)).filter(Boolean)))]
+  const provinceOptions = ['All Provinces', ...Array.from(new Set(applications.map((item) => toText(item.province)).filter(Boolean)))]
+  const districtOptions = ['All Districts', ...Array.from(new Set(applications.map((item) => toText(item.district)).filter(Boolean)))]
+  const designationOptions = ['All Designations', ...Array.from(new Set(applications.map((item) => toText(item.designation)).filter(Boolean)))]
+  const paymentOptions = ['All Payments', ...Array.from(new Set(applications.map((item) => titleStatus(item.paymentStatus)).filter(Boolean)))]
+  const pending = applications.filter((item) => normalizeStatus(item.status) === 'pending').length
+  const approved = applications.filter((item) => normalizeStatus(item.status) === 'approved').length
+  const rejected = applications.filter((item) => normalizeStatus(item.status) === 'rejected').length
+  const paid = applications.filter((item) => ['paid', 'verified', 'approved'].includes(normalizeStatus(item.paymentStatus))).length
+  const syncSelectedApplication = (application: DpoRecord, patch: Record<string, unknown>) => {
+    setSelectedApplication((current) => {
+      if (!current || current.id !== application.id) {
+        return { ...application, ...patch }
+      }
+      return { ...current, ...patch }
+    })
+  }
+  const openDesignationReview = (application: DpoRecord) => {
+    setOpenMenuId(null)
+    setSelectedApplication(application)
+    setActionMessage(`${toText(application.applicant ?? application.name) || 'Application'} opened for review.`)
+  }
+  const handleDesignationAction = async (application: DpoRecord, action: 'approve' | 'reject') => {
+    setOpenMenuId(null)
+    const nextStatus = action === 'approve' ? 'approved' : 'rejected'
+    try {
+      if (action === 'approve') {
+        try {
+          await apiState.runAction('designation-applications', application.id, 'approve')
+        } catch {
+          await apiState.updateRecord('designation-applications', application.id, { status: 'approved' })
+        }
+        syncSelectedApplication(application, { status: nextStatus })
+        setActionMessage(`${toText(application.applicant ?? application.name) || 'Application'} approved.`)
+        return
+      }
+      await apiState.updateRecord('designation-applications', application.id, { status: 'rejected' })
+      syncSelectedApplication(application, { status: nextStatus })
+      setActionMessage(`${toText(application.applicant ?? application.name) || 'Application'} rejected.`)
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Designation action failed.')
+    }
+  }
+
+  return (
+    <div className="dashboard-wrap members-page designation-page">
+      <section className="member-kpis">
+        <MemberKpi icon={Clock} label="Pending Reviews" value={pending} note="Awaiting admin decision" tone="warning" />
+        <MemberKpi icon={CircleCheck} label="Approved" value={approved} note="Moved to active designations" tone="success" />
+        <MemberKpi icon={CircleX} label="Rejected" value={rejected} note="Not approved" tone="danger" />
+        <MemberKpi icon={CreditCard} label="Fee Verified" value={paid} note="Ready for review" tone="success" />
+      </section>
+
+      <section className="members-table-panel designation-table-panel">
+        <div className="members-toolbar designation-toolbar">
+          <label className="filter-field">
+            <span>Status</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>{statusOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <label className="filter-field">
+            <span>Province</span>
+            <select value={province} onChange={(event) => setProvince(event.target.value)}>{provinceOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <label className="filter-field">
+            <span>District</span>
+            <select value={district} onChange={(event) => setDistrict(event.target.value)}>{districtOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <label className="filter-field">
+            <span>Designation</span>
+            <select value={designation} onChange={(event) => setDesignation(event.target.value)}>{designationOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <label className="filter-field">
+            <span>Payment</span>
+            <select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>{paymentOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+        </div>
+
+        <div className="production-table-scroll">
+          <table className="production-members-table designation-applications-table">
+            <thead>
+              <tr>{['Application ID', 'Applicant', 'CNIC', 'Designation', 'Province', 'District', 'Payment', 'Documents', 'Status', 'Submitted', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
+            </thead>
+            <tbody>
+              {visibleApplications.map((application) => {
+                const docs = documentSummary(application)
+                const isApproved = normalizeStatus(application.status) === 'approved'
+                const isRejected = normalizeStatus(application.status) === 'rejected'
+                return (
+                  <tr className={activeApplication?.id === application.id ? 'selected-row' : ''} key={application.id} onClick={() => setSelectedApplication(application)}>
+                    <td>{toText(application.applicationNumber ?? application.id)}</td>
+                    <td><b>{toText(application.applicant ?? application.name)}</b><small>{toText(application.wing) || 'DPO'}</small></td>
+                    <td>{toText(application.cnicMasked ?? application.cnic) || '-'}</td>
+                    <td>{toText(application.designation)}</td>
+                    <td>{toText(application.province)}</td>
+                    <td>{toText(application.district)}</td>
+                    <td><Status>{titleStatus(application.paymentStatus)}</Status></td>
+                    <td><Tag tone={docs.tone}>{docs.label}</Tag></td>
+                    <td><Status>{titleStatus(application.status)}</Status></td>
+                    <td>{formatDate(application.createdAt)}</td>
+                    <td>
+                      <div className="member-row-actions">
+                        {!isApproved && <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); void handleDesignationAction(application, 'approve') }}>Approve</button>}
+                        {!isRejected && <button className="reject-row" type="button" onClick={(event) => { event.stopPropagation(); void handleDesignationAction(application, 'reject') }}>Reject</button>}
+                        <button className="icon-table-btn view-btn" type="button" aria-label="Review designation application" onClick={(event) => { event.stopPropagation(); openDesignationReview(application) }}><Eye size={16} /></button>
+                        <div className="row-menu-wrap">
+                          <button className="icon-table-btn more-btn" type="button" aria-label="More designation actions" onClick={(event) => { event.stopPropagation(); setOpenMenuId(openMenuId === application.id ? null : application.id) }}>
+                            <MoreVertical size={16} />
+                          </button>
+                          {openMenuId === application.id && (
+                            <div className="row-action-menu" onClick={(event) => event.stopPropagation()}>
+                              {!isApproved && <button type="button" onClick={() => void handleDesignationAction(application, 'approve')}>Approve</button>}
+                              {!isRejected && <button type="button" onClick={() => void handleDesignationAction(application, 'reject')}>Reject</button>}
+                              <button type="button" onClick={() => openDesignationReview(application)}>Review</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="members-pagination">
+          <span>Showing 1 to {visibleApplications.length} of {applications.length} designation applications</span>
+          <div>
+            <button type="button">&lt;</button>
+            <button className="active" type="button">1</button>
+            <button type="button">&gt;</button>
+          </div>
+        </div>
+      </section>
+
+      {activeApplication && (
+        <section className="designation-review-panel">
+          <div className="designation-review-head">
+            <div>
+              <span>Reviewing Application</span>
+              <h2>{toText(activeApplication.applicationNumber ?? activeApplication.id)}</h2>
+            </div>
+            <Status>{titleStatus(activeApplication.status)}</Status>
+          </div>
+          <div className="designation-review-grid">
+            <ReviewBlock title="Personal Information" pairs={[
+              ['Name', toText(activeApplication.applicant ?? activeApplication.name)],
+              ['CNIC', toText(activeApplication.cnicMasked ?? activeApplication.cnic) || '-'],
+              ['Phone', toText(activeApplication.phone) || '-'],
+              ['Email', toText(activeApplication.email) || '-'],
+            ]} />
+            <ReviewBlock title="Designation Details" pairs={[
+              ['Designation', toText(activeApplication.designation)],
+              ['Wing', toText(activeApplication.wing)],
+              ['Validity', activeApplication.validityMonths ? `${toText(activeApplication.validityMonths)} months` : '-'],
+              ['Payment', titleStatus(activeApplication.paymentStatus)],
+            ]} />
+            <ReviewBlock title="Area Details" pairs={[
+              ['Province', toText(activeApplication.province)],
+              ['District', toText(activeApplication.district)],
+              ['Area', toText(activeApplication.area)],
+              ['Country', toText(activeApplication.country) || 'Pakistan'],
+            ]} />
+            <div className="designation-docs-panel">
+              <h3>Required Documents</h3>
+              <div>
+                {['CNIC Front', 'CNIC Back', 'Profile Photo'].map((label, index) => (
+                  <figure key={label}>
+                    <img src={`/dpo-assets/front-${(index % 4) + 1}.png`} alt={label} />
+                    <figcaption>{label}<Tag tone="success">Verified</Tag></figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </div>
+          <footer className="designation-decision-bar">
+            <div>
+              <b>Admin Decision</b>
+              <span>Review application details and take action.</span>
+            </div>
+            <div>
+              {normalizeStatus(activeApplication.status) !== 'approved' && <button className="primary-action" type="button" onClick={() => void handleDesignationAction(activeApplication, 'approve')}>Approve Application</button>}
+              {normalizeStatus(activeApplication.status) !== 'rejected' && <button className="reject-row" type="button" onClick={() => void handleDesignationAction(activeApplication, 'reject')}>Reject Application</button>}
+            </div>
+          </footer>
+        </section>
+      )}
+
+      {actionMessage && (
+        <div className="action-toast" role="status">
+          <span>{actionMessage}</span>
+          <button type="button" onClick={() => setActionMessage(null)}>Close</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ReviewBlock({ title, pairs }: { title: string; pairs: [string, string][] }) {
+  return (
+    <div className="designation-review-block">
+      <h3>{title}</h3>
+      {pairs.map(([label, value]) => (
+        <p key={label}><span>{label}</span><b>{value || '-'}</b></p>
+      ))}
+    </div>
+  )
+}
+
+function ActiveDesignationsScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
+  const [localSearch, setLocalSearch] = useState('')
+  const [province, setProvince] = useState('All Provinces')
+  const [status, setStatus] = useState('All Statuses')
+  const [selectedDesignation, setSelectedDesignation] = useState<DpoRecord | null>(null)
+  const [drawerState, setDrawerState] = useState<{ record: DpoRecord; editing: boolean } | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const designations = apiState.records['active-designations'] ?? []
+  const activeDesignations = designations.filter((item) => normalizeStatus(item.status) === 'active')
+  const today = new Date()
+  const inThirtyDays = new Date(today)
+  inThirtyDays.setDate(today.getDate() + 30)
+  const expiringSoon = designations.filter((item) => {
+    const expiry = new Date(toText(item.expiryDate))
+    return Number.isFinite(expiry.getTime()) && expiry >= today && expiry <= inThirtyDays
+  })
+  const provinceOptions = ['All Provinces', ...Array.from(new Set(designations.map((item) => toText(item.province)).filter(Boolean)))]
+  const statusOptions = ['All Statuses', ...Array.from(new Set(designations.map((item) => titleStatus(item.status)).filter(Boolean)))]
+  const visibleDesignations = designations.filter((designationRecord) => {
+    const searchTerms = [searchQuery, localSearch].filter(Boolean).map((term) => term.toLowerCase())
+    const rowSearch = searchableText(designationRecord)
+    const matchesSearch = searchTerms.every((term) => rowSearch.includes(term))
+    const matchesProvince = province === 'All Provinces' || toText(designationRecord.province) === province
+    const matchesStatus = status === 'All Statuses' || normalizeStatus(designationRecord.status) === normalizeStatus(status)
+    return matchesSearch && matchesProvince && matchesStatus
+  })
+  const activeDesignation = selectedDesignation ?? visibleDesignations[0]
+  const provinceCoverage = [
+    { name: 'Punjab', aliases: ['punjab'] },
+    { name: 'Sindh', aliases: ['sindh'] },
+    { name: 'KPK', aliases: ['kpk', 'khyber pakhtunkhwa'] },
+    { name: 'Balochistan', aliases: ['balochistan'] },
+    { name: 'Islamabad', aliases: ['islamabad', 'capital territory'] },
+  ].map((provinceItem) => ({
+    name: provinceItem.name,
+    count: designations.filter((item) => provinceItem.aliases.some((alias) => toText(item.province).toLowerCase().includes(alias))).length,
+    aliases: provinceItem.aliases,
+  }))
+  const maxProvinceCount = Math.max(...provinceCoverage.map((item) => item.count), 1)
+  const suspendDesignation = async (designationRecord: DpoRecord) => {
+    try {
+      await apiState.updateRecord('active-designations', designationRecord.id, { status: 'suspended' })
+      setSelectedDesignation({ ...designationRecord, status: 'suspended' })
+      setActionMessage(`${toText(designationRecord.holder ?? designationRecord.name) || 'Designation'} suspended.`)
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Designation action failed.')
+    }
+  }
+
+  return (
+    <div className="dashboard-wrap active-designations-page">
+      <section className="member-kpis">
+        <MemberKpi icon={BadgeCheck} label="Active Designations" value={activeDesignations.length} note="Currently assigned" tone="success" />
+        <MemberKpi icon={MapPinned} label="Covered Districts" value={new Set(designations.map((item) => toText(item.district)).filter(Boolean)).size} note="District presence" tone="success" />
+        <MemberKpi icon={AlertTriangle} label="Vacant Areas" value={Math.max(0, 24 - activeDesignations.length)} note="Need assignment" tone="warning" />
+        <MemberKpi icon={CalendarDays} label="Expiring Soon" value={expiringSoon.length} note="Within 30 days" tone="danger" />
+      </section>
+
+      <section className="active-analytics-grid">
+        <div className="active-analytics-card province-coverage-card">
+          <h3><MapPinned size={17} /> Province Coverage</h3>
+          {provinceCoverage.map((item) => (
+            <div className="coverage-row" key={item.name}>
+              <span>{item.name}</span>
+              <div><i style={{ width: `${Math.max(12, (item.count / maxProvinceCount) * 100)}%` }} /></div>
+              <b>{item.count}</b>
+            </div>
+          ))}
+          <p>Total covered districts: {new Set(designations.map((item) => toText(item.district)).filter(Boolean)).size}</p>
+        </div>
+      </section>
+
+      <section className="members-table-panel active-designations-table-panel">
+        <div className="members-toolbar active-designations-toolbar">
+          <label className="filter-field search-filter">
+            <span>Search</span>
+            <div className="local-search-box"><Search size={16} /><input value={localSearch} onChange={(event) => setLocalSearch(event.target.value)} placeholder="Search holder or district..." /></div>
+          </label>
+          <label className="filter-field">
+            <span>Province</span>
+            <select value={province} onChange={(event) => setProvince(event.target.value)}>{provinceOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <label className="filter-field">
+            <span>Status</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>{statusOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <button className="primary-action" type="button" onClick={() => setCreating(true)}><Plus size={16} /> Add Designation</button>
+        </div>
+        <div className="production-table-scroll">
+          <table className="production-members-table active-designations-table">
+            <thead>
+              <tr>{['Holder', 'Designation', 'Province', 'District', 'Area', 'Expiry', 'Status', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
+            </thead>
+            <tbody>
+              {visibleDesignations.map((designationRecord) => (
+                <tr className={activeDesignation?.id === designationRecord.id ? 'selected-row' : ''} key={designationRecord.id} onClick={() => setSelectedDesignation(designationRecord)}>
+                  <td><b>{toText(designationRecord.holder ?? designationRecord.name)}</b><small>{toText(designationRecord.membershipNumber) || '-'}</small></td>
+                  <td>{toText(designationRecord.designation)}</td>
+                  <td>{toText(designationRecord.province)}</td>
+                  <td>{toText(designationRecord.district)}</td>
+                  <td>{toText(designationRecord.area)}</td>
+                  <td>{formatDate(designationRecord.expiryDate)}</td>
+                  <td><Status>{titleStatus(designationRecord.status)}</Status></td>
+                  <td>
+                    <div className="member-row-actions">
+                      <button className="icon-table-btn view-btn" type="button" aria-label="View designation" onClick={(event) => { event.stopPropagation(); setSelectedDesignation(designationRecord); setDrawerState({ record: designationRecord, editing: false }) }}><Eye size={16} /></button>
+                      <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); setSelectedDesignation(designationRecord); setDrawerState({ record: designationRecord, editing: true }) }}>Edit</button>
+                      {normalizeStatus(designationRecord.status) !== 'suspended' && <button className="reject-row" type="button" onClick={(event) => { event.stopPropagation(); void suspendDesignation(designationRecord) }}>Suspend</button>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="members-pagination">
+          <span>Showing 1 to {visibleDesignations.length} of {designations.length} active designations</span>
+          <div>
+            <button type="button">&lt;</button>
+            <button className="active" type="button">1</button>
+            <button type="button">&gt;</button>
+          </div>
+        </div>
+      </section>
+
+      {activeDesignation && (
+        <section className="active-designation-details">
+          <ReviewBlock title="Holder Info" pairs={[
+            ['Holder', toText(activeDesignation.holder ?? activeDesignation.name)],
+            ['Membership', toText(activeDesignation.membershipNumber) || '-'],
+            ['Designation', toText(activeDesignation.designation)],
+            ['Wing', toText(activeDesignation.wing) || '-'],
+          ]} />
+          <ReviewBlock title="Area Assignment" pairs={[
+            ['Province', toText(activeDesignation.province)],
+            ['District', toText(activeDesignation.district)],
+            ['Area', toText(activeDesignation.area)],
+            ['Assigned On', formatDate(activeDesignation.issueDate)],
+          ]} />
+          <div className="active-quick-actions">
+            <h3>Quick Actions</h3>
+            <button type="button" onClick={() => setDrawerState({ record: activeDesignation, editing: false })}><Eye size={15} /> View Details</button>
+            <button type="button" onClick={() => setDrawerState({ record: activeDesignation, editing: true })}>Edit Designation</button>
+            {normalizeStatus(activeDesignation.status) !== 'suspended' && <button className="danger-action" type="button" onClick={() => void suspendDesignation(activeDesignation)}>Suspend</button>}
+          </div>
+        </section>
+      )}
+
+      {creating && <CreateRecordModal resource="active-designations" apiState={apiState} onClose={() => setCreating(false)} />}
+      {drawerState && <RecordDrawer title="Active Designation" resource="active-designations" record={drawerState.record} apiState={apiState} startEditing={drawerState.editing} onClose={() => setDrawerState(null)} />}
+      {actionMessage && (
+        <div className="action-toast" role="status">
+          <span>{actionMessage}</span>
+          <button type="button" onClick={() => setActionMessage(null)}>Close</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GalleryManagementScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
+  const [tab, setTab] = useState('Albums')
+  const [status, setStatus] = useState('All')
+  const [category, setCategory] = useState('All Categories')
+  const [year, setYear] = useState('All Years')
+  const [galleryDialog, setGalleryDialog] = useState<{ mode: 'edit' | 'view'; record: DpoRecord } | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const albums = apiState.records['gallery-albums'] ?? []
+  const visibleAlbums = albums.filter((album) => {
+    const albumYear = toText(album.eventDate).slice(0, 4)
+    const matchesSearch = searchQuery ? searchableText(album).includes(searchQuery.toLowerCase()) : true
+    const matchesStatus = status === 'All' || galleryPublishStatus(album.status) === status
+    const matchesCategory = category === 'All Categories' || toText(album.category) === category
+    const matchesYear = year === 'All Years' || albumYear === year
+    return matchesSearch && matchesStatus && matchesCategory && matchesYear
+  })
+  const mediaRows = getGalleryMediaRows(visibleAlbums)
+  const published = albums.filter((album) => normalizeStatus(album.status) === 'published').length
+  const drafts = albums.filter((album) => normalizeStatus(album.status) === 'draft').length
+  const totalMedia = albums.reduce((sum, album) => sum + getAlbumImages(album).length, 0)
+  const storageUsed = Math.max(totalMedia * 2, totalMedia)
+  const statusOptions = ['All', 'Published', 'Unpublished']
+  const categoryOptions = ['All Categories', ...Array.from(new Set(albums.map((album) => toText(album.category)).filter(Boolean)))]
+  const yearOptions = ['All Years', ...Array.from(new Set(albums.map((album) => toText(album.eventDate).slice(0, 4)).filter(Boolean)))]
+  const handleGalleryAction = async (album: DpoRecord, action: 'publish' | 'unpublish' | 'delete') => {
+    setOpenMenuId(null)
+    if (action === 'delete') {
+      await apiState.deleteRecord('gallery-albums', album.id)
+      setActionMessage(`${toText(album.titleEnglish) || 'Album'} deleted.`)
+      return
+    }
+    await apiState.runAction('gallery-albums', album.id, action)
+    setActionMessage(`${toText(album.titleEnglish) || 'Album'} ${action === 'publish' ? 'published' : 'unpublished'}.`)
+  }
+
+  return (
+    <div className="dashboard-wrap members-page gallery-page">
+      <section className="member-kpis">
+        <MemberKpi icon={GalleryHorizontalEnd} label="Published Albums" value={published} note="Live on website" tone="success" />
+        <MemberKpi icon={FileText} label="Unpublished Albums" value={drafts} note="Hidden from website" tone="warning" />
+        <MemberKpi icon={GalleryHorizontalEnd} label="Total Media" value={totalMedia} note="Images from database" tone="success" />
+        <MemberKpi icon={CreditCard} label="Storage Used" value={storageUsed} note="Estimated MB" tone="danger" />
+      </section>
+
+      <section className="members-table-panel gallery-workspace-panel">
+        <div className="cms-tabs gallery-tabs">
+          {['Albums', 'Media Library'].map((item) => (
+            <button className={tab === item ? 'active' : ''} type="button" key={item} onClick={() => setTab(item)}>{item}</button>
+          ))}
+        </div>
+
+        <div className="members-toolbar gallery-toolbar">
+          <button className="primary-action" type="button" onClick={() => setCreating(true)}><Plus size={16} /> New Album</button>
+          <label className="filter-field">
+            <span>Status</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              {statusOptions.map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>Category</span>
+            <select value={category} onChange={(event) => setCategory(event.target.value)}>
+              {categoryOptions.map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="filter-field">
+            <span>Year</span>
+            <select value={year} onChange={(event) => setYear(event.target.value)}>
+              {yearOptions.map((item) => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+        </div>
+
+        {tab === 'Albums' ? (
+          <div className="gallery-album-grid">
+            {visibleAlbums.map((album) => {
+              const cover = getAlbumCover(album)
+              const images = getAlbumImages(album)
+              return (
+                <article className="gallery-album-card" key={album.id} onClick={() => setGalleryDialog({ mode: 'view', record: album })}>
+                  <div className="gallery-cover">
+                    <img src={cover} alt={toText(album.titleEnglish) || 'Gallery album'} />
+                    <span><GalleryHorizontalEnd size={14} /> {formatNumber(toText(album.imageCount) || images.length)}</span>
+                  </div>
+                  <div className="gallery-card-body">
+                    <div>
+                      <h3>{toText(album.titleEnglish) || '-'}</h3>
+                      <p>{toText(album.category) || 'Gallery'} · {images.length} media files</p>
+                    </div>
+                    <Status>{galleryPublishStatus(album.status)}</Status>
+                  </div>
+                  <div className="gallery-card-meta">
+                    <span>{images.length} linked files</span>
+                  </div>
+                  <div className="gallery-card-actions">
+                    <button type="button" onClick={(event) => { event.stopPropagation(); setGalleryDialog({ mode: 'edit', record: album }) }}>Edit</button>
+                    <button className="icon-table-btn view-btn" type="button" aria-label="Preview album" onClick={(event) => { event.stopPropagation(); setGalleryDialog({ mode: 'view', record: album }) }}><Eye size={16} /></button>
+                    <div className="row-menu-wrap">
+                      <button className="icon-table-btn more-btn" type="button" aria-label="More gallery actions" onClick={(event) => { event.stopPropagation(); setOpenMenuId(openMenuId === album.id ? null : album.id) }}>
+                        <MoreVertical size={16} />
+                      </button>
+                      {openMenuId === album.id && (
+                        <div className="row-action-menu" onClick={(event) => event.stopPropagation()}>
+                          <button type="button" onClick={() => void handleGalleryAction(album, 'publish')}>Publish</button>
+                          <button type="button" onClick={() => void handleGalleryAction(album, 'unpublish')}>Unpublish</button>
+                          <button type="button" onClick={() => void handleGalleryAction(album, 'delete')}>Delete</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="cms-tab-empty">
+            <h2>{tab}</h2>
+            <p>Gallery content is loaded from uploaded album records and media assets.</p>
+          </div>
+        )}
+      </section>
+
+      <section className="members-table-panel gallery-media-panel">
+        <div className="table-title gallery-table-title">
+          <h2>Recent Media</h2>
+          <button type="button" onClick={() => setTab('Media Library')}>View All Media</button>
+        </div>
+        <div className="production-table-scroll">
+          <table className="production-members-table gallery-media-table">
+            <thead>
+              <tr>{['Thumbnail', 'File Name', 'Type', 'Linked Album', 'Alt Text', 'Publish Status', 'Uploaded Date', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
+            </thead>
+            <tbody>
+              {mediaRows.map((media) => (
+                <tr key={media.fileName}>
+                  <td><img className="gallery-table-thumb" src={media.src} alt={media.altText} /></td>
+                  <td><b>{media.fileName}</b><small>{media.size}</small></td>
+                  <td>{media.type}</td>
+                  <td>{media.albumTitle}</td>
+                  <td>{media.altText ? <Tag tone="success">Added</Tag> : <Tag tone="danger">Missing</Tag>}</td>
+                  <td><Status>{media.status}</Status></td>
+                  <td>{media.uploadedDate}</td>
+                  <td>
+                    <div className="member-row-actions">
+                      <button className="icon-table-btn view-btn" type="button" aria-label="Preview media" onClick={() => setGalleryDialog({ mode: 'view', record: media.album })}><Eye size={16} /></button>
+                      <button className="icon-table-btn more-btn" type="button" aria-label="More media actions"><MoreVertical size={16} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {galleryDialog && (
+        <GalleryAlbumModal
+          mode={galleryDialog.mode}
+          record={galleryDialog.record}
+          apiState={apiState}
+          onClose={() => setGalleryDialog(null)}
+          onSaved={(message) => setActionMessage(message)}
+        />
+      )}
+      {creating && <NewGalleryAlbumModal apiState={apiState} onClose={() => setCreating(false)} onSaved={(message) => setActionMessage(message)} />}
+      {actionMessage && (
+        <div className="action-toast" role="status">
+          <span>{actionMessage}</span>
+          <button type="button" onClick={() => setActionMessage(null)}>Close</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GalleryAlbumModal({
+  mode,
+  record,
+  apiState,
+  onClose,
+  onSaved,
+}: {
+  mode: 'edit' | 'view'
+  record: DpoRecord
+  apiState: ApiState
+  onClose: () => void
+  onSaved: (message: string) => void
+}) {
+  const images = getAlbumImages(record)
+  const carouselImages = images.length ? images : [getAlbumCover(record)]
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const [largeViewerOpen, setLargeViewerOpen] = useState(false)
+  const [imageList, setImageList] = useState<string[]>(carouselImages)
+  const [draft, setDraft] = useState({
+    titleEnglish: toText(record.titleEnglish),
+    titleUrdu: toText(record.titleUrdu),
+    category: toText(record.category) || 'Gallery',
+    eventDate: toText(record.eventDate),
+    coverImage: getAlbumCover(record),
+    status: normalizeStatus(record.status) || 'draft',
+  })
+  const [saving, setSaving] = useState(false)
+  const updateDraft = (key: keyof typeof draft, value: string) => setDraft((current) => ({ ...current, [key]: value }))
+  const goToImage = (direction: 'previous' | 'next', event?: React.MouseEvent<HTMLButtonElement>) => {
+    event?.stopPropagation()
+    setActiveImageIndex((current) => {
+      const offset = direction === 'next' ? 1 : -1
+      return (current + offset + carouselImages.length) % carouselImages.length
+    })
+  }
+  const uploadAlbumImages = async (files: FileList | null) => {
+    if (!files?.length) return
+    const uploadedImages = await Promise.all(Array.from(files).map(readFileAsDataUrl))
+    setImageList((current) => {
+      const nextImages = [...current, ...uploadedImages]
+      setDraft((currentDraft) => ({
+        ...currentDraft,
+        coverImage: currentDraft.coverImage || nextImages[0] || '',
+      }))
+      return nextImages
+    })
+  }
+  const removeAlbumImage = (index: number) => {
+    setImageList((current) => {
+      const nextImages = current.filter((_, imageIndex) => imageIndex !== index)
+      setActiveImageIndex((currentIndex) => Math.min(currentIndex, Math.max(nextImages.length - 1, 0)))
+      setDraft((currentDraft) => ({
+        ...currentDraft,
+        coverImage: currentDraft.coverImage === current[index] ? nextImages[0] || '' : currentDraft.coverImage,
+      }))
+      return nextImages
+    })
+  }
+  const moveAlbumImage = (index: number, direction: 'up' | 'down') => {
+    setImageList((current) => {
+      const nextIndex = direction === 'up' ? index - 1 : index + 1
+      if (nextIndex < 0 || nextIndex >= current.length) return current
+      const nextImages = [...current]
+      const [image] = nextImages.splice(index, 1)
+      nextImages.splice(nextIndex, 0, image)
+      setActiveImageIndex(nextIndex)
+      return nextImages
+    })
+  }
+  const saveAlbum = async () => {
+    setSaving(true)
+    try {
+      await apiState.updateRecord('gallery-albums', record.id, {
+        titleEnglish: draft.titleEnglish.trim() || 'Untitled Album',
+        titleUrdu: draft.titleUrdu.trim(),
+        category: draft.category.trim() || 'Gallery',
+        eventDate: draft.eventDate,
+        coverImage: imageList[0] || '',
+        imageCount: imageList.length,
+        status: draft.status,
+        images: imageList,
+      })
+      onSaved(`${draft.titleEnglish || 'Album'} updated.`)
+      onClose()
+    } catch (error) {
+      onSaved(error instanceof Error ? error.message : 'Gallery album could not be saved.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="gallery-modal-backdrop" role="dialog" aria-modal="true">
+      <section className="gallery-modal">
+        <header className="gallery-modal-head">
+          <div>
+            <span>Gallery Management</span>
+            <h2>{mode === 'edit' ? 'Edit Album' : 'Album Preview'}</h2>
+          </div>
+          <button type="button" onClick={onClose}>Close</button>
+        </header>
+
+        <div className="gallery-modal-body">
+          <div className="gallery-preview-panel">
+            <div className="gallery-carousel-stage">
+              <button className="gallery-large-trigger" type="button" onClick={() => mode === 'view' && setLargeViewerOpen(true)}>
+                <img src={mode === 'view' ? carouselImages[activeImageIndex] : imageList[0] || getAlbumCover(record)} alt={draft.titleEnglish || 'Gallery album'} />
+              </button>
+              {mode === 'view' && carouselImages.length > 1 && (
+                <div className="gallery-carousel-controls">
+                  <button type="button" onClick={(event) => goToImage('previous', event)}>Previous</button>
+                  <span>{activeImageIndex + 1} / {carouselImages.length}</span>
+                  <button type="button" onClick={(event) => goToImage('next', event)}>Next</button>
+                </div>
+              )}
+            </div>
+            <div>
+              <h3>{draft.titleEnglish || '-'}</h3>
+              <p>Album · {formatDate(draft.eventDate)}</p>
+              <Status>{galleryPublishStatus(draft.status)}</Status>
+            </div>
+          </div>
+
+          {mode === 'edit' ? (
+            <div className="gallery-edit-form">
+              <label><span>English Title</span><input value={draft.titleEnglish} onChange={(event) => updateDraft('titleEnglish', event.target.value)} /></label>
+              <label><span>Urdu Title</span><input dir="rtl" lang="ur" value={draft.titleUrdu} onChange={(event) => updateDraft('titleUrdu', event.target.value)} /></label>
+              <label><span>Category</span><input value={draft.category} onChange={(event) => updateDraft('category', event.target.value)} placeholder="Events, Campaigns, Membership" /></label>
+              <label><span>Publish Status</span><select value={draft.status} onChange={(event) => updateDraft('status', event.target.value)}><option value="published">Published</option><option value="draft">Unpublished</option></select></label>
+              <GalleryDropzone onUpload={(files) => void uploadAlbumImages(files)} />
+              <div className="gallery-image-manager wide">
+                {imageList.map((image, index) => (
+                  <figure key={`${image}-${index}`}>
+                    <img src={image} alt={`Album media ${index + 1}`} />
+                    <figcaption>
+                      <button type="button" disabled={index === 0} onClick={() => moveAlbumImage(index, 'up')}>Up</button>
+                      <button type="button" disabled={index === imageList.length - 1} onClick={() => moveAlbumImage(index, 'down')}>Down</button>
+                      <button type="button" onClick={() => removeAlbumImage(index)}>Delete</button>
+                    </figcaption>
+                  </figure>
+                ))}
+                {!imageList.length && <p>No images in this album.</p>}
+              </div>
+            </div>
+          ) : (
+            <div className="gallery-preview-grid">
+              {carouselImages.map((image, index) => (
+                <button className={activeImageIndex === index ? 'active' : ''} type="button" onClick={() => { setActiveImageIndex(index); setLargeViewerOpen(true) }} key={image}>
+                  <img src={image} alt={toText(record.titleEnglish)} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <footer className="gallery-modal-actions">
+          <button type="button" onClick={onClose}>Cancel</button>
+          {mode === 'edit' && <button className="primary-action" type="button" disabled={saving} onClick={() => void saveAlbum()}>{saving ? 'Saving...' : 'Save Changes'}</button>}
+        </footer>
+      </section>
+      {largeViewerOpen && (
+        <div className="gallery-lightbox" role="dialog" aria-modal="true" onClick={() => setLargeViewerOpen(false)}>
+          <div className="gallery-lightbox-shell" onClick={(event) => event.stopPropagation()}>
+            <div className="gallery-lightbox-top">
+              <div>
+                <b>{draft.titleEnglish || 'Gallery image'}</b>
+                <span>{activeImageIndex + 1} of {carouselImages.length}</span>
+              </div>
+              <button className="gallery-lightbox-close" type="button" onClick={() => setLargeViewerOpen(false)}>Close</button>
+            </div>
+            <button className="gallery-lightbox-nav previous" type="button" onClick={(event) => goToImage('previous', event)}>Previous</button>
+            <img className="gallery-lightbox-image" src={carouselImages[activeImageIndex]} alt={draft.titleEnglish || 'Gallery preview'} />
+            <button className="gallery-lightbox-nav next" type="button" onClick={(event) => goToImage('next', event)}>Next</button>
+            <div className="gallery-lightbox-thumbs">
+              {carouselImages.map((image, index) => (
+                <button className={activeImageIndex === index ? 'active' : ''} type="button" onClick={() => setActiveImageIndex(index)} key={`large-${image}`}>
+                  <img src={image} alt="" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NewGalleryAlbumModal({ apiState, onClose, onSaved }: { apiState: ApiState; onClose: () => void; onSaved: (message: string) => void }) {
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('')
+  const [status, setStatus] = useState('published')
+  const [imageList, setImageList] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+  const uploadImages = async (files: FileList | null) => {
+    if (!files?.length) return
+    const uploadedImages = await Promise.all(Array.from(files).map(readFileAsDataUrl))
+    setImageList((current) => [...current, ...uploadedImages])
+  }
+  const removeImage = (index: number) => {
+    setImageList((current) => current.filter((_, imageIndex) => imageIndex !== index))
+  }
+  const moveImage = (index: number, direction: 'up' | 'down') => {
+    setImageList((current) => {
+      const nextIndex = direction === 'up' ? index - 1 : index + 1
+      if (nextIndex < 0 || nextIndex >= current.length) return current
+      const nextImages = [...current]
+      const [image] = nextImages.splice(index, 1)
+      nextImages.splice(nextIndex, 0, image)
+      return nextImages
+    })
+  }
+  const saveAlbum = async () => {
+    if (!title.trim()) {
+      onSaved('Album title is required.')
+      return
+    }
+    setSaving(true)
+    try {
+      await apiState.createRecord('gallery-albums', {
+        titleEnglish: title.trim(),
+        titleUrdu: '',
+        category: category.trim() || 'Gallery',
+        eventDate: new Date().toISOString().slice(0, 10),
+        coverImage: imageList[0] || '',
+        imageCount: imageList.length,
+        status,
+        images: imageList,
+      })
+      onSaved(`${title.trim()} created.`)
+      onClose()
+    } catch (error) {
+      onSaved(error instanceof Error ? error.message : 'Album could not be created.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="gallery-modal-backdrop" role="dialog" aria-modal="true">
+      <section className="gallery-modal compact-gallery-modal">
+        <header className="gallery-modal-head">
+          <div>
+            <span>Gallery Management</span>
+            <h2>New Album</h2>
+          </div>
+          <button type="button" onClick={onClose}>Close</button>
+        </header>
+        <div className="gallery-modal-body">
+          <div className="gallery-edit-form">
+            <label><span>Title</span><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Album title" /></label>
+            <label><span>Category</span><input value={category} onChange={(event) => setCategory(event.target.value)} placeholder="Events, Campaigns, Membership" /></label>
+            <label><span>Publish Status</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="published">Published</option><option value="draft">Unpublished</option></select></label>
+            <GalleryDropzone onUpload={(files) => void uploadImages(files)} />
+            <div className="gallery-image-manager wide">
+              {imageList.map((image, index) => (
+                <figure key={`${image}-${index}`}>
+                  <img src={image} alt={`Album upload ${index + 1}`} />
+                  <figcaption>
+                    <button type="button" disabled={index === 0} onClick={() => moveImage(index, 'up')}>Up</button>
+                    <button type="button" disabled={index === imageList.length - 1} onClick={() => moveImage(index, 'down')}>Down</button>
+                    <button type="button" onClick={() => removeImage(index)}>Delete</button>
+                  </figcaption>
+                </figure>
+              ))}
+              {!imageList.length && <p>No images selected.</p>}
+            </div>
+          </div>
+        </div>
+        <footer className="gallery-modal-actions">
+          <button type="button" onClick={onClose}>Cancel</button>
+          <button className="primary-action" type="button" disabled={saving} onClick={() => void saveAlbum()}>{saving ? 'Saving...' : 'Create Album'}</button>
+        </footer>
+      </section>
+    </div>
+  )
+}
+
+function GalleryDropzone({ onUpload }: { onUpload: (files: FileList | null) => void }) {
+  const [dragging, setDragging] = useState(false)
+  return (
+    <label
+      className={`gallery-dropzone wide ${dragging ? 'dragging' : ''}`}
+      onDragOver={(event) => {
+        event.preventDefault()
+        setDragging(true)
+      }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault()
+        setDragging(false)
+        onUpload(event.dataTransfer.files)
+      }}
+    >
+      <span>Upload Images</span>
+      <strong>Drag and drop images here</strong>
+      <small>or click to choose multiple image files</small>
+      <input type="file" accept="image/*" multiple onChange={(event) => onUpload(event.target.files)} />
+    </label>
   )
 }
 
@@ -1588,7 +2484,6 @@ function getModuleTools(moduleName: string) {
   const tools: Record<string, string[]> = {
     'Members Management': ['Approve Member', 'Reject', 'Request Info', 'Suspend', 'Reactivate', 'Renew Membership', 'Regenerate Card', 'Download Card', 'Send SMS / Email', 'View Payment', 'View History', 'Archive'],
     'Membership Applications': ['Approve', 'Reject', 'Request Information', 'View Documents', 'Generate Card'],
-    'Membership Cards': ['Preview Card', 'Download Card', 'Regenerate Card', 'Activate Template', 'Version History'],
     'Designation Applications': ['Approve', 'Reject', 'Request Changes', 'Change Area', 'Change Designation', 'Generate Card', 'Generate Appointment Letter'],
     'Active Designations': ['Change Area', 'Change Designation', 'Generate Appointment Letter', 'Suspend', 'Revoke', 'Renew'],
     'Designation Renewals': ['Approve Renewal', 'Reject', 'Mark Paid', 'Export CSV'],
@@ -1674,8 +2569,7 @@ function getLiveModuleTable(moduleName: string, status: string, apiState: ApiSta
 function getLiveColumns(moduleName: string) {
   const columns: Record<string, string[]> = {
     'Members Management': ['Membership No', 'Name', 'Phone', 'District', 'Status'],
-    'Membership Applications': ['Record No', 'Name', 'CNIC', 'Type', 'Country', 'District', 'Payment Status', 'Status', 'Updated'],
-    'Membership Cards': ['Record No', 'Membership No', 'Name', 'Template Version', 'QR Code', 'Status', 'Updated'],
+    'Membership Applications': ['Record No', 'Name', 'CNIC', 'Country', 'District', 'Payment Status', 'Status', 'Updated'],
     'Designation Applications': ['Record No', 'Name', 'CNIC', 'Designation', 'Wing', 'Province', 'District', 'Area', 'Payment Status', 'Status', 'Validity'],
     'Active Designations': ['Name', 'Membership No', 'Designation', 'Wing', 'Province', 'District', 'Area', 'Issue Date', 'Expiry Date', 'Status'],
     'Designation Renewals': ['Record No', 'Name', 'Designation', 'District', 'Payment Status', 'Status', 'Updated'],
@@ -1708,7 +2602,7 @@ function formatCell(column: string, record: DpoRecord, resource: string) {
     Name: record.name ?? record.applicant ?? record.holder ?? record.donorName ?? record.title ?? record.titleEnglish,
     CNIC: record.cnicMasked,
     Phone: record.phone,
-    Type: record.membershipType ?? record.templateType ?? record.type ?? resource,
+    Type: record.templateType ?? record.type ?? resource,
     Country: record.country,
     District: record.district,
     'Payment Status': record.paymentStatus,
@@ -1785,9 +2679,9 @@ function formatCell(column: string, record: DpoRecord, resource: string) {
   return titleStatus(valueMap[column])
 }
 
-function RecordDrawer({ title, resource, record, apiState, onClose }: { title: string; resource: string; record: DpoRecord; apiState: ApiState; onClose: () => void }) {
+function RecordDrawer({ title, resource, record, apiState, startEditing = false, onClose }: { title: string; resource: string; record: DpoRecord; apiState: ApiState; startEditing?: boolean; onClose: () => void }) {
   const [draft, setDraft] = useState<Record<string, string>>(() => editableDraft(record))
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(startEditing)
   const actionButtons = getRecordActions(resource)
   const save = async () => {
     await apiState.updateRecord(resource, record.id, normalizeDraft(draft))
@@ -1817,7 +2711,7 @@ function RecordDrawer({ title, resource, record, apiState, onClose }: { title: s
             {Object.entries(draft).map(([key, value]) => (
               <label key={key}>
                 <span>{titleStatus(key)}</span>
-                <DraftField resource={resource} fieldKey={key} value={value} onChange={(nextValue) => setDraft((current) => ({ ...current, [key]: nextValue }))} />
+                <DraftField resource={resource} fieldKey={key} value={value} apiState={apiState} onChange={(nextValue) => setDraft((current) => ({ ...current, [key]: nextValue }))} />
               </label>
             ))}
           </div>
@@ -1865,7 +2759,7 @@ function CreateRecordModal({ resource, apiState, onClose }: { resource: string; 
           {Object.entries(draft).map(([key, value]) => (
             <label key={key}>
               <span>{titleStatus(key)}</span>
-              <DraftField resource={resource} fieldKey={key} value={value} onChange={(nextValue) => setDraft((current) => ({ ...current, [key]: nextValue }))} />
+              <DraftField resource={resource} fieldKey={key} value={value} apiState={apiState} onChange={(nextValue) => setDraft((current) => ({ ...current, [key]: nextValue }))} />
             </label>
           ))}
         </div>
@@ -1878,13 +2772,16 @@ function CreateRecordModal({ resource, apiState, onClose }: { resource: string; 
   )
 }
 
-function DraftField({ resource, fieldKey, value, onChange }: { resource: string; fieldKey: string; value: string; onChange: (value: string) => void }) {
-  const options = selectOptions(resource, fieldKey)
-  if (options.length) {
+function DraftField({ resource, fieldKey, value, apiState, onChange }: { resource: string; fieldKey: string; value: string; apiState: ApiState; onChange: (value: string) => void }) {
+  const options = selectOptions(resource, fieldKey, apiState)
+  const fieldOptions = value && options.length && !options.some((option) => option.value === value)
+    ? [{ label: value, value }, ...options]
+    : options
+  if (fieldOptions.length) {
     return (
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">Select {titleStatus(fieldKey).toLowerCase()}</option>
-        {options.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+        {fieldOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
       </select>
     )
   }
@@ -1899,10 +2796,11 @@ function editableDraft(record: DpoRecord) {
 function defaultDraft(resource: string): Record<string, string> {
   const suffix = Date.now().toString().slice(-5)
   const fields: Record<string, string[]> = {
-    members: ['membershipNumber', 'name', 'email', 'phone', 'cnicMasked', 'district', 'country', 'membershipType', 'paymentStatus', 'status'],
+    members: ['membershipNumber', 'name', 'email', 'phone', 'cnicMasked', 'district', 'country', 'paymentStatus', 'status'],
     complaints: ['complaintNumber', 'name', 'cnicMasked', 'category', 'priority', 'subject', 'status'],
     payments: ['orderId', 'gatewayTransactionId', 'user', 'paymentType', 'baseAmount', 'serviceFee', 'totalAmount', 'gateway', 'status'],
     'wireless-devices': ['imei', 'brand', 'model', 'serialNumber', 'assignedPerson', 'department', 'status'],
+    'active-designations': ['holder', 'membershipNumber', 'designation', 'wing', 'province', 'district', 'area', 'issueDate', 'expiryDate', 'status'],
     settings: ['key', 'label', 'group', 'value', 'status'],
   }
 
@@ -1931,7 +2829,14 @@ function fieldPlaceholder(resource: string, key: string) {
   return placeholders[key] ?? `Enter ${titleStatus(key).toLowerCase()}`
 }
 
-function selectOptions(resource: string, key: string) {
+function selectOptions(resource: string, key: string, apiState?: ApiState) {
+  if (key === 'designation' && resource !== 'designation-master-list') {
+    const designationOptions = (apiState?.records['designation-master-list'] ?? [])
+      .map((record) => toText(record.designation))
+      .filter(Boolean)
+    return Array.from(new Set(designationOptions)).map((designation) => ({ label: designation, value: designation }))
+  }
+
   const shared: Record<string, { label: string; value: string }[]> = {
     status: [
       { label: 'Pending', value: 'pending' },
@@ -1946,14 +2851,6 @@ function selectOptions(resource: string, key: string) {
       { label: 'Paid', value: 'paid' },
       { label: 'Failed', value: 'failed' },
       { label: 'Refunded', value: 'refunded' },
-    ],
-    membershipType: [
-      { label: 'Regular', value: 'Regular' },
-      { label: 'General Member', value: 'General Member' },
-      { label: 'Volunteer Member', value: 'Volunteer Member' },
-      { label: 'Student', value: 'Student' },
-      { label: 'Family', value: 'Family' },
-      { label: 'International', value: 'International' },
     ],
     country: [
       { label: 'Pakistan', value: 'Pakistan' },
@@ -2038,6 +2935,68 @@ function getHeroSlides(page?: DpoRecord) {
     if (Array.isArray(slides)) return slides.map((slide) => toText(slide)).filter(Boolean)
   }
   return ['/dpo-assets/front-1.png', '/dpo-assets/front-2.png', '/dpo-assets/front-3.png', '/dpo-assets/front-4.png']
+}
+
+function getAlbumImages(album: DpoRecord) {
+  return Array.isArray(album.images) ? album.images.map((image) => toText(image)).filter(Boolean) : []
+}
+
+function getAlbumCover(album: DpoRecord) {
+  const images = getAlbumImages(album)
+  if (images[0]) return images[0]
+  const cover = toText(album.coverImage)
+  return cover || '/dpo-assets/front-1.png'
+}
+
+function getGalleryMediaRows(albums: DpoRecord[]) {
+  return albums.flatMap((album) => {
+    const images = getAlbumImages(album)
+    const albumTitle = toText(album.titleEnglish) || 'Gallery Album'
+    const rows = images.length ? images : [getAlbumCover(album)]
+    return rows.map((src, index) => ({
+      src,
+      album,
+      fileName: src.split('/').pop() || `gallery-image-${index + 1}.png`,
+      size: `${formatNumber(Math.max(620, (index + 1) * 410))} KB`,
+      type: isImageAsset(src) ? 'Image' : 'File',
+      albumTitle,
+      altText: `${albumTitle} media ${index + 1}`,
+      status: galleryPublishStatus(album.status),
+      uploadedDate: formatDate(album.eventDate ?? album.createdAt),
+    }))
+  }).slice(0, 8)
+}
+
+function galleryPublishStatus(status: unknown) {
+  return normalizeStatus(status) === 'published' ? 'Published' : 'Unpublished'
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const source = toText(reader.result)
+      const image = new Image()
+      image.onload = () => {
+        const maxSize = 1600
+        const ratio = Math.min(maxSize / image.width, maxSize / image.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(Math.round(image.width * ratio), 1)
+        canvas.height = Math.max(Math.round(image.height * ratio), 1)
+        const context = canvas.getContext('2d')
+        if (!context) {
+          resolve(source)
+          return
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.82))
+      }
+      image.onerror = () => resolve(source)
+      image.src = source
+    }
+    reader.onerror = () => reject(reader.error ?? new Error('Image upload failed'))
+    reader.readAsDataURL(file)
+  })
 }
 
 function asObject(value: unknown): Record<string, unknown> {
