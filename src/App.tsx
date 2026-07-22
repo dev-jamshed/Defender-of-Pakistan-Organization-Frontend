@@ -16,24 +16,29 @@ import {
   Eye,
   FileText,
   GalleryHorizontalEnd,
-  HeartHandshake,
   LayoutDashboard,
+  Lock,
+  LogOut,
   MapPinned,
+  Mail,
   Moon,
   MoreVertical,
   PanelLeftClose,
   Plus,
-  RadioTower,
   Search,
   Settings,
   ShieldCheck,
+  Sun,
   UsersRound,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:3000/api'
+const AUTH_STORAGE_KEY = 'dpo-admin-session'
+const DEFAULT_ADMIN_PASSWORD = 'admin123'
 
 const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, active: true },
@@ -42,12 +47,8 @@ const navItems = [
   { name: 'Designation Applications', icon: ShieldCheck },
   { name: 'Active Designations', icon: BadgeCheck },
   { name: 'Designation Renewals', icon: CalendarDays },
-  { name: 'Designation Master List', icon: FileText },
-  { name: 'Geographic Areas', icon: MapPinned },
-  { name: 'Wireless Devices', icon: RadioTower },
   { name: 'Complaint Management', icon: CircleHelp },
   { name: 'Payments & Finance', icon: Banknote },
-  { name: 'Welfare & Donations', icon: HeartHandshake },
   { name: 'Gallery Management', icon: GalleryHorizontalEnd },
   { name: 'Website CMS', icon: FileText },
   { name: 'Card Templates', icon: CreditCard },
@@ -109,6 +110,12 @@ type ApiState = {
   runAction: (resource: string, id: string, action: string, payload?: Record<string, unknown>) => Promise<unknown>
 }
 
+type AdminSession = {
+  name: string
+  email: string
+  role: string
+}
+
 const moduleResources: Record<string, string[]> = {
   'Members Management': ['members'],
   'Membership Applications': ['membership-applications'],
@@ -117,10 +124,8 @@ const moduleResources: Record<string, string[]> = {
   'Designation Renewals': ['designation-renewals'],
   'Designation Master List': ['designation-master-list'],
   'Geographic Areas': ['geographic-areas'],
-  'Wireless Devices': ['wireless-devices'],
   'Complaint Management': ['complaints'],
   'Payments & Finance': ['payments'],
-  'Welfare & Donations': ['welfare-campaigns', 'donations'],
   'Gallery Management': ['gallery-albums'],
   'Website CMS': ['cms-pages'],
   'Card Templates': ['card-templates'],
@@ -260,23 +265,77 @@ function getInitialNav() {
   return navItems.some((item) => item.name === hashValue) ? hashValue : 'Dashboard'
 }
 
+function getStoredSession(): AdminSession | null {
+  try {
+    const stored = localStorage.getItem(AUTH_STORAGE_KEY)
+    if (!stored) return null
+    const parsed = JSON.parse(stored) as Partial<AdminSession>
+    if (!parsed.email || !parsed.name) return null
+    return {
+      name: toText(parsed.name),
+      email: toText(parsed.email),
+      role: toText(parsed.role) || 'Admin',
+    }
+  } catch {
+    return null
+  }
+}
+
 function App() {
+  const isAdminPath = window.location.pathname.replace(/\/$/, '') === '/admin'
+  const hasAdminHash = navItems.some((item) => item.name === decodeURIComponent(window.location.hash.slice(1)))
+
+  if (!isAdminPath && hasAdminHash) {
+    window.history.replaceState(null, '', `/admin${window.location.hash}`)
+    return <AdminApp />
+  }
+
+  if (!isAdminPath) {
+    return <PublicHome />
+  }
+
+  return <AdminApp />
+}
+
+function AdminApp() {
   const [activeNav, setActiveNavState] = useState(getInitialNav)
   const [period, setPeriod] = useState('This Month')
   const [areaFilter, setAreaFilter] = useState('All Provinces')
   const [searchQuery, setSearchQuery] = useState('')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [session, setSession] = useState<AdminSession | null>(() => getStoredSession())
+  const [theme, setTheme] = useState(() => localStorage.getItem('dpo-admin-theme') === 'dark' ? 'dark' : 'light')
   const apiState = useDpoApi()
   const setActiveNav = (value: string) => {
     setActiveNavState(value)
     window.location.hash = encodeURIComponent(value)
   }
+  const handleLogin = (nextSession: AdminSession) => {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession))
+    setSession(nextSession)
+  }
+  const handleLogout = () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY)
+    setSession(null)
+    setSearchQuery('')
+  }
+  const toggleTheme = () => {
+    setTheme((current) => {
+      const nextTheme = current === 'dark' ? 'light' : 'dark'
+      localStorage.setItem('dpo-admin-theme', nextTheme)
+      return nextTheme
+    })
+  }
+
+  if (!session) {
+    return <LoginScreen apiState={apiState} onLogin={handleLogin} />
+  }
 
   return (
-    <div className={`logicsols-app ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+    <div className={`logicsols-app theme-${theme} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} collapsed={sidebarCollapsed} />
       <main className="layout-main">
-        <Navbar activeNav={activeNav} apiState={apiState} searchQuery={searchQuery} setSearchQuery={setSearchQuery} toggleSidebar={() => setSidebarCollapsed((value) => !value)} />
+        <Navbar activeNav={activeNav} apiState={apiState} searchQuery={searchQuery} setSearchQuery={setSearchQuery} session={session} theme={theme} onToggleTheme={toggleTheme} onLogout={handleLogout} toggleSidebar={() => setSidebarCollapsed((value) => !value)} />
         {activeNav === 'Dashboard' ? (
           <Dashboard period={period} setPeriod={setPeriod} areaFilter={areaFilter} setAreaFilter={setAreaFilter} apiState={apiState} searchQuery={searchQuery} setActiveNav={setActiveNav} />
         ) : (
@@ -324,7 +383,78 @@ function Sidebar({ activeNav, setActiveNav, collapsed }: { activeNav: string; se
   )
 }
 
-function Navbar({ activeNav, apiState, searchQuery, setSearchQuery, toggleSidebar }: { activeNav: string; apiState: ApiState; searchQuery: string; setSearchQuery: (value: string) => void; toggleSidebar: () => void }) {
+function LoginScreen({ apiState, onLogin }: { apiState: ApiState; onLogin: (session: AdminSession) => void }) {
+  const [email, setEmail] = useState('admin@dpo.local')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const adminUsers = apiState.records['admin-users'] ?? []
+  const submitLogin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const normalizedEmail = email.trim().toLowerCase()
+    const adminUser = adminUsers.find((user) => toText(user.email).toLowerCase() === normalizedEmail)
+    const fallbackAdmin = normalizedEmail === 'admin@dpo.local'
+    if ((!adminUser && !fallbackAdmin) || password !== DEFAULT_ADMIN_PASSWORD) {
+      setError('Invalid email or password.')
+      return
+    }
+    onLogin({
+      name: toText(adminUser?.name) || 'Super Admin',
+      email: toText(adminUser?.email) || normalizedEmail,
+      role: toText(adminUser?.role) || 'Super Admin',
+    })
+  }
+
+  return (
+    <main className="login-page">
+      <section className="login-panel">
+        <div className="login-brand">
+          <img src="/dpo-assets/logo-transparent.png" alt="DPO logo" />
+          <div>
+            <span>Defenders of Pakistan Organization</span>
+            <h1>Admin Login</h1>
+          </div>
+        </div>
+        <form className="login-form" onSubmit={submitLogin}>
+          <label>
+            <span>Email Address</span>
+            <div><Mail size={17} /><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@dpo.local" /></div>
+          </label>
+          <label>
+            <span>Password</span>
+            <div><Lock size={17} /><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter password" /></div>
+          </label>
+          {error && <p className="login-error">{error}</p>}
+          <button type="submit">Login</button>
+        </form>
+      </section>
+    </main>
+  )
+}
+
+function PublicHome() {
+  return (
+    <main className="public-home">
+      <header className="public-home-nav">
+        <div className="login-brand public-brand">
+          <img src="/dpo-assets/logo-transparent.png" alt="DPO logo" />
+          <div>
+            <span>Defenders of Pakistan Organization</span>
+            <h1>DPO</h1>
+          </div>
+        </div>
+        <a href="/admin">Admin Login</a>
+      </header>
+      <section className="public-home-hero">
+        <h2>Defenders of Pakistan Organization</h2>
+        <p>Official website content will appear here.</p>
+      </section>
+    </main>
+  )
+}
+
+function Navbar({ activeNav, apiState, searchQuery, setSearchQuery, session, theme, onToggleTheme, onLogout, toggleSidebar }: { activeNav: string; apiState: ApiState; searchQuery: string; setSearchQuery: (value: string) => void; session: AdminSession; theme: string; onToggleTheme: () => void; onLogout: () => void; toggleSidebar: () => void }) {
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const notifications = (apiState.records['notification-logs'] ?? []).slice(0, 6)
   return (
     <header className="supplier-navbar">
       <div className="navbar-left">
@@ -341,20 +471,34 @@ function Navbar({ activeNav, apiState, searchQuery, setSearchQuery, toggleSideba
 
       <div className="navbar-actions">
         <button className="ai-button" type="button" onClick={() => void apiState.reload()}><ArrowUpRight size={16} /> Refresh</button>
-        <div className="language-switch" aria-label="Language switch">
-          <button type="button" className="active">EN</button>
-          <button type="button">UR</button>
+        <button className="outline-icon" type="button" aria-label="Toggle theme" onClick={onToggleTheme}>{theme === 'dark' ? <Sun size={21} /> : <Moon size={21} />}</button>
+        <div className="notification-wrap">
+          <button className={`outline-icon notify-btn ${notifications.length ? 'has-items' : ''}`} type="button" aria-label="Notifications" onClick={() => setNotificationsOpen((value) => !value)}><Bell size={20} /></button>
+          {notificationsOpen && (
+            <div className="notification-menu">
+              <div className="notification-head">
+                <b>Notifications</b>
+                <button type="button" onClick={() => setNotificationsOpen(false)}>Close</button>
+              </div>
+              {notifications.length ? notifications.map((notification) => (
+                <button className="notification-item" type="button" key={notification.id}>
+                  <span>{toText(notification.channel) || 'Alert'}</span>
+                  <b>{toText(notification.event) || toText(notification.subject) || 'Notification'}</b>
+                  <small>{formatDate(notification.sentAt ?? notification.createdAt)}</small>
+                </button>
+              )) : <p className="empty-notifications">No notifications found.</p>}
+            </div>
+          )}
         </div>
-        <button className="outline-icon" type="button" aria-label="Theme"><Moon size={21} /></button>
-        <button className="outline-icon notify-btn" type="button" aria-label="Notifications"><Bell size={20} /></button>
         <button className="profile-trigger" type="button">
-          <span className="profile-avatar">SA</span>
+          <span className="profile-avatar">{initialsFrom(session.name)}</span>
           <span className="profile-copy">
-            <b>Super Admin</b>
-            <small>Admin</small>
+            <b>{session.name}</b>
+            <small>{session.role}</small>
           </span>
           <ChevronDown size={16} />
         </button>
+        <button className="outline-icon" type="button" aria-label="Logout" onClick={onLogout}><LogOut size={19} /></button>
       </div>
     </header>
   )
@@ -369,7 +513,7 @@ function Dashboard({ period, setPeriod, areaFilter, setAreaFilter, apiState, sea
         </div>
 
         <div className="col-12">
-          <KpiGrid dashboard={apiState.dashboard} database={apiState.database} />
+          <KpiGrid dashboard={apiState.dashboard} />
         </div>
 
         <div className="col-12">
@@ -389,15 +533,13 @@ function Dashboard({ period, setPeriod, areaFilter, setAreaFilter, apiState, sea
 
         <div className="col-12">
           <div className="inner-grid">
-            <div className="col-8"><MembersManagement membersData={apiState.records.members ?? []} apiState={apiState} searchQuery={searchQuery} /></div>
-            <div className="col-4"><MemberDetail member={(apiState.records.members ?? [])[0]} apiState={apiState} /></div>
+            <div className="col-12"><MembersManagement membersData={apiState.records.members ?? []} apiState={apiState} searchQuery={searchQuery} /></div>
           </div>
         </div>
 
         <div className="col-12">
           <div className="inner-grid">
-            <div className="col-7"><ComplaintManagement complaintsData={apiState.records.complaints ?? []} apiState={apiState} /></div>
-            <div className="col-5"><CmsAndCards cmsPages={apiState.records['cms-pages'] ?? []} cardTemplates={apiState.records['card-templates'] ?? []} member={(apiState.records.members ?? [])[0]} apiState={apiState} /></div>
+            <div className="col-12"><ComplaintManagement complaintsData={apiState.records.complaints ?? []} /></div>
           </div>
         </div>
 
@@ -409,20 +551,16 @@ function Dashboard({ period, setPeriod, areaFilter, setAreaFilter, apiState, sea
   )
 }
 
-function KpiGrid({ dashboard, database }: { dashboard: DashboardSummary | null; database: DatabaseStatus | null }) {
+function KpiGrid({ dashboard }: { dashboard: DashboardSummary | null }) {
   const kpis: [string, unknown, LucideIcon, string][] = [
     ['Total Members', dashboard?.kpis.totalMembers, UsersRound, 'success'],
     ['Pending Applications', dashboard?.kpis.pendingApplications, FileText, 'warning'],
     ['Active Members', dashboard?.kpis.activeMembers, CircleCheck, 'success'],
     ['Expired Members', dashboard?.kpis.expiredMembers, CircleX, 'danger'],
     ['Total Designations', dashboard?.kpis.totalDesignations, ShieldCheck, 'info'],
-    ['Pending Designations', dashboard?.kpis.pendingDesignations, CalendarDays, 'warning'],
     ['Open Complaints', dashboard?.kpis.openComplaints, CircleHelp, 'warning'],
     ['Urgent Complaints', dashboard?.kpis.urgentComplaints, CircleHelp, 'danger'],
     ['Today Payments', dashboard?.kpis.todayPayments, Banknote, 'success'],
-    ['Monthly Revenue', formatCurrency(dashboard?.kpis.monthlyRevenue), Banknote, 'success'],
-    ['Total Donations', formatCurrency(dashboard?.kpis.totalDonations), HeartHandshake, 'info'],
-    ['Active Wireless Devices', dashboard?.kpis.activeWirelessDevices ?? database?.resourceCounts['wireless-devices'], RadioTower, 'success'],
   ]
 
   return (
@@ -493,7 +631,6 @@ function OverviewHeader({ period, setPeriod, areaFilter, setAreaFilter }: { peri
 function MapCard({ areaFilter, apiState }: { areaFilter: string; apiState: ApiState }) {
   const totalMembers = Number(apiState.dashboard?.kpis.totalMembers ?? 0)
   const totalDesignations = Number(apiState.dashboard?.kpis.totalDesignations ?? 0)
-  const activeWirelessDevices = Number(apiState.dashboard?.kpis.activeWirelessDevices ?? 0)
   const regions = [
     ['Punjab', String(Math.max(totalMembers - 1, 0)), '45%', '72%', `${totalDesignations} designations`, `${apiState.records.complaints?.length ?? 0} complaints`],
     ['Sindh', String(apiState.records.members?.filter((member) => toText(member.district).toLowerCase().includes('karachi')).length ?? 0), '30%', '64%', `${apiState.records['active-designations']?.filter((item) => toText(item.province) === 'Sindh').length ?? 0} designations`, 'Live DB'],
@@ -529,7 +666,6 @@ function MapCard({ areaFilter, apiState }: { areaFilter: string; apiState: ApiSt
       <div className="map-summary">
         <SummaryStat label="Total Members" value={formatNumber(totalMembers)} />
         <SummaryStat label="Active Designations" value={formatNumber(totalDesignations)} />
-        <SummaryStat label="Wireless Devices" value={formatNumber(activeWirelessDevices)} />
       </div>
     </section>
   )
@@ -563,10 +699,8 @@ function IncomingApplications({ dashboard }: { dashboard: DashboardSummary | nul
 function ActionItems({ dashboard, database, setActiveNav }: { dashboard: DashboardSummary | null; database: DatabaseStatus | null; setActiveNav: (value: string) => void }) {
   const liveActions: [string, string, LucideIcon, string][] = [
     [`${formatNumber(dashboard?.kpis.urgentComplaints ?? 0)} urgent complaints need assignment`, 'Live', CircleHelp, 'Complaints'],
-    [`${formatNumber(dashboard?.kpis.pendingDesignations ?? 0)} designations pending approval`, 'Live', ShieldCheck, 'Designations'],
     [`${formatNumber(database?.resourceCounts['membership-cards'] ?? 0)} cards available for review`, 'DB', CreditCard, 'Applications'],
     [`${formatNumber(database?.resourceCounts.payments ?? 0)} payment records synced`, 'DB', Banknote, 'Payments'],
-    [`${formatNumber(dashboard?.kpis.activeWirelessDevices ?? 0)} active wireless devices`, 'Live', RadioTower, 'Wireless Devices'],
   ]
   return (
     <section className="logicsols-card action-card">
@@ -586,7 +720,6 @@ function ActionItems({ dashboard, database, setActiveNav }: { dashboard: Dashboa
 
 function FinancialInsights({ dashboard }: { dashboard: DashboardSummary | null }) {
   const monthlyRevenue = Number(dashboard?.kpis.monthlyRevenue ?? 0)
-  const totalDonations = Number(dashboard?.kpis.totalDonations ?? 0)
   const revenueRows = ((dashboard?.charts.revenueByMonth as { month: string; revenue: number }[] | undefined) ?? []).slice(-5)
   return (
     <section className="logicsols-card financial-card">
@@ -595,7 +728,6 @@ function FinancialInsights({ dashboard }: { dashboard: DashboardSummary | null }
         <div className="legend">
           <span><i className="muted" /> Total Revenue</span>
           <span><i className="green" /> Service Fee</span>
-          <span><i className="gold" /> Donations</span>
         </div>
       </div>
       <h3>{formatCurrency(monthlyRevenue)} <Tag tone="success">Live finance</Tag></h3>
@@ -604,12 +736,10 @@ function FinancialInsights({ dashboard }: { dashboard: DashboardSummary | null }
           {(revenueRows.length ? revenueRows : [{ month: 'Now', revenue: monthlyRevenue }]).map((row, index) => {
             const revenue = Math.max(18, Math.min(95, Math.round((Number(row.revenue) / Math.max(monthlyRevenue, 1)) * 90)))
             const fee = Math.max(12, Math.round(revenue * 0.55))
-            const donation = Math.max(10, Math.round((totalDonations / Math.max(monthlyRevenue + totalDonations, 1)) * 80))
             return (
             <div className="bar-week" key={index}>
               <span className="expected" style={{ height: `${revenue}%` }} />
               <span className="actual" style={{ height: `${fee}%` }} />
-              <span className="donation" style={{ height: `${donation}%` }} />
               <small>{row.month}</small>
             </div>
             )
@@ -617,8 +747,6 @@ function FinancialInsights({ dashboard }: { dashboard: DashboardSummary | null }
         </div>
         <div className="finance-side">
           <SummaryStat label="Paid Records" value={formatNumber(dashboard?.kpis.todayPayments ?? 0)} />
-          <SummaryStat label="Monthly Revenue" value={formatCurrency(monthlyRevenue)} />
-          <SummaryStat label="Donations" value={formatCurrency(totalDonations)} />
         </div>
       </div>
     </section>
@@ -698,73 +826,11 @@ function MembersManagement({ membersData, apiState, searchQuery }: { membersData
   )
 }
 
-function MemberDetail({ member, apiState }: { member?: DpoRecord; apiState: ApiState }) {
-  const initials = initialsFrom(toText(member?.name) || 'Member')
-  const applyAction = (action: string) => {
-    if (!member) return
-    if (action === 'Renew') {
-      void apiState.updateRecord('members', member.id, { status: 'active', expiryDate: '2027-12-31' })
-      return
-    }
-    if (action === 'Generate Card') {
-      void apiState.createRecord('membership-cards', {
-        cardNumber: `CARD-${member.id}`,
-        membershipNumber: member.membershipNumber,
-        name: member.name,
-        templateVersion: 'membership-v2.1',
-        qrValue: `${API_BASE}/public/verify/member/${toText(member.membershipNumber)}`,
-        status: 'active',
-      })
-      return
-    }
-    const actionMap: Record<string, string> = { Approve: 'approve', Reject: 'reject', Suspend: 'suspend' }
-    void apiState.runAction('members', member.id, actionMap[action] ?? action.toLowerCase())
-  }
-  return (
-    <section className="logicsols-card member-card">
-      <h2>Member Detail</h2>
-      <div className="member-profile">
-        <div className="member-avatar">{initials}</div>
-        <div>
-          <h3>{toText(member?.name) || 'No member selected'} <Status>{titleStatus(member?.status)}</Status></h3>
-          <p>{toText(member?.membershipNumber) || '-'}</p>
-          <small>{toText(member?.cnicMasked) || '-'}</small>
-        </div>
-      </div>
-      <div className="member-actions">
-        {['Approve', 'Reject', 'Suspend', 'Renew', 'Generate Card'].map((action) => <button type="button" key={action} onClick={() => applyAction(action)}>{action}</button>)}
-      </div>
-      <div className="member-tabs">
-        {['Personal Information', 'CNIC Documents', 'Payment History', 'Card Versions', 'Audit History'].map((tab, index) => <button className={index === 0 ? 'active' : ''} type="button" key={tab}>{tab}</button>)}
-      </div>
-      <div className="info-grid">
-        <SummaryStat label="Issue Date" value={toText(member?.issueDate) || '-'} />
-        <SummaryStat label="Expiry Date" value={toText(member?.expiryDate) || '-'} />
-      </div>
-    </section>
-  )
-}
-
-function ComplaintManagement({ complaintsData, apiState }: { complaintsData: DpoRecord[]; apiState: ApiState }) {
-  const [selected, setSelected] = useState<DpoRecord | undefined>(complaintsData[0])
-  const activeComplaint = selected ?? complaintsData[0]
-  const handleComplaintAction = (action: string) => {
-    if (!activeComplaint) return
-    if (action === 'Assign') {
-      void apiState.updateRecord('complaints', activeComplaint.id, { assignedOfficer: 'Super Admin', status: 'under_review' })
-    } else if (action === 'Priority') {
-      void apiState.updateRecord('complaints', activeComplaint.id, { priority: 'high' })
-    } else if (action === 'Public Update') {
-      void apiState.updateRecord('complaints', activeComplaint.id, { publicResponse: 'Your complaint is under review.' })
-    } else {
-      void apiState.runAction('complaints', activeComplaint.id, 'resolve', { publicResponse: 'Complaint resolved.' })
-    }
-  }
+function ComplaintManagement({ complaintsData }: { complaintsData: DpoRecord[] }) {
   return (
     <section className="logicsols-card complaint-card">
       <div className="table-title">
         <h2>Complaint Management</h2>
-        <button type="button">Assign Officer</button>
       </div>
       <div className="complaint-layout">
         <div className="table-scroll">
@@ -772,54 +838,14 @@ function ComplaintManagement({ complaintsData, apiState }: { complaintsData: Dpo
             <thead><tr>{['Complaint No', 'Subject', 'Category', 'Priority', 'Status'].map((h) => <th key={h}>{h}</th>)}</tr></thead>
             <tbody>
               {complaintsData.map((row) => (
-                <tr key={row.id} onClick={() => setSelected(row)}>
+                <tr key={row.id}>
                   <td>{toText(row.complaintNumber)}</td><td>{toText(row.subject)}</td><td>{toText(row.category)}</td><td><Status>{titleStatus(row.priority)}</Status></td><td><Status>{titleStatus(row.status)}</Status></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <aside className="complaint-detail">
-          <span>Selected Complaint Workflow</span>
-          <h3>{toText(activeComplaint?.complaintNumber) || '-'}</h3>
-          <p>{toText(activeComplaint?.subject) || 'No complaint selected.'}</p>
-          <strong>{toText(activeComplaint?.slaDueAt) || 'No SLA'}</strong>
-          <div>{['Assign', 'Priority', 'Public Update', 'Resolve'].map((x) => <button type="button" key={x} onClick={() => handleComplaintAction(x)}>{x}</button>)}</div>
-        </aside>
       </div>
-    </section>
-  )
-}
-
-function CmsAndCards({ cmsPages, cardTemplates, member, apiState }: { cmsPages: DpoRecord[]; cardTemplates: DpoRecord[]; member?: DpoRecord; apiState: ApiState }) {
-  const [activeTab, setActiveTab] = useState('Hero Slides')
-  const activeTemplate = cardTemplates[0]
-  const homePage = cmsPages.find((page) => page.slug === 'home') ?? cmsPages[0]
-  const heroSlides = getHeroSlides(homePage)
-  const activePageCount = cmsPages.filter((page) => page.status === 'published').length
-  return (
-    <section className="logicsols-card cms-card">
-      <h2>Website CMS & Card Template</h2>
-      <p className="section-help">Manage public website content and active membership card template from one admin workspace.</p>
-      <div className="cms-buttons">
-        {['Logo', 'Hero Slides', 'Mission', 'Policies', 'SEO', 'Urdu Editor'].map((x) => <button className={activeTab === x ? 'active' : ''} type="button" key={x} onClick={() => setActiveTab(x)}>{x}</button>)}
-      </div>
-      <div className="cms-workflow">
-        <span><b>CMS Status</b>{activePageCount} published pages</span>
-        <span><b>Active Template</b>{toText(activeTemplate?.name) || '-'}</span>
-      </div>
-      <div className="asset-strip">
-        {heroSlides.slice(0, 4).map((slide) => (
-          <img src={slide} alt="DPO supplied asset" key={slide} />
-        ))}
-      </div>
-      <div className="id-card">
-        <span>DPO Membership Card</span>
-        <b>{toText(member?.name) || 'Member Name'}</b>
-        <small>{toText(member?.membershipNumber) || 'DPO-ID'}</small>
-        <i>QR</i>
-      </div>
-      <button className="activate-template" type="button" onClick={() => activeTemplate && void apiState.runAction('card-templates', activeTemplate.id, 'publish')}>Activate Template</button>
     </section>
   )
 }
@@ -2489,10 +2515,8 @@ function getModuleTools(moduleName: string) {
     'Designation Renewals': ['Approve Renewal', 'Reject', 'Mark Paid', 'Export CSV'],
     'Designation Master List': ['Add Designation', 'Edit Fee', 'Deactivate', 'Export CSV'],
     'Geographic Areas': ['Add Area', 'Edit Hierarchy', 'Deactivate Area', 'Office Bearers', 'International Region'],
-    'Complaint Management': ['Assign Officer', 'Change Priority', 'Change Status', 'Internal Note', 'Public Update', 'Escalate', 'Resolve', 'Close Case', 'Reopen'],
+    'Complaint Management': ['Change Priority', 'Change Status', 'Internal Note', 'Public Update', 'Escalate', 'Resolve', 'Close Case', 'Reopen'],
     'Payments & Finance': ['View Callback', 'Verify Manually', 'Mark Offline Payment', 'Generate Receipt', 'Refund', 'Export CSV', 'Export PDF'],
-    'Wireless Devices': ['Register Device', 'Assign Device', 'Mark Lost / Stolen', 'Import CSV', 'Verification Logs'],
-    'Welfare & Donations': ['Create Campaign', 'Publish Cause', 'Review Donations', 'Donor Export', 'Cause Analytics'],
     'Gallery Management': ['Upload Images', 'Set Cover', 'Reorder Images', 'Publish Album', 'Archive'],
     'Website CMS': ['Edit Hero Slides', 'Edit Mission', 'SEO Settings', 'Legal Pages', 'Social Links', 'Publish'],
     'Card Templates': ['Preview', 'Edit Front Layout', 'Edit Back Layout', 'Version History', 'Activate Template'],
@@ -2577,8 +2601,6 @@ function getLiveColumns(moduleName: string) {
     'Geographic Areas': ['Area ID', 'Country', 'Province', 'Division', 'District', 'Tehsil', 'Union Council', 'Status'],
     'Complaint Management': ['Complaint No', 'Name', 'CNIC', 'Category', 'Priority', 'Subject', 'Status', 'Officer', 'Submitted Date', 'Last Update'],
     'Payments & Finance': ['Order ID', 'Transaction ID', 'User', 'Payment Type', 'Base Amount', 'Service Fee', 'Total Amount', 'Gateway', 'Status', 'Paid Date', 'Refund Status'],
-    'Wireless Devices': ['IMEI', 'Brand', 'Model', 'Serial No', 'Assigned Person', 'Department', 'Registration No', 'Status', 'Expiry Date'],
-    'Welfare & Donations': ['Record No', 'Cause', 'Target Amount', 'Raised Amount', 'Start Date', 'End Date', 'Cover', 'Publish Status', 'Status'],
     'Gallery Management': ['Album ID', 'Title English', 'Title Urdu', 'Images', 'Cover', 'Event Date', 'Publish Status', 'Status'],
     'Website CMS': ['Setting Key', 'Description', 'Current Value', 'Scope', 'Last Updated', 'Updated By', 'Status'],
     'Card Templates': ['Record No', 'Type', 'Template Version', 'QR Code', 'Status', 'Updated'],
@@ -2799,7 +2821,6 @@ function defaultDraft(resource: string): Record<string, string> {
     members: ['membershipNumber', 'name', 'email', 'phone', 'cnicMasked', 'district', 'country', 'paymentStatus', 'status'],
     complaints: ['complaintNumber', 'name', 'cnicMasked', 'category', 'priority', 'subject', 'status'],
     payments: ['orderId', 'gatewayTransactionId', 'user', 'paymentType', 'baseAmount', 'serviceFee', 'totalAmount', 'gateway', 'status'],
-    'wireless-devices': ['imei', 'brand', 'model', 'serialNumber', 'assignedPerson', 'department', 'status'],
     'active-designations': ['holder', 'membershipNumber', 'designation', 'wing', 'province', 'district', 'area', 'issueDate', 'expiryDate', 'status'],
     settings: ['key', 'label', 'group', 'value', 'status'],
   }
