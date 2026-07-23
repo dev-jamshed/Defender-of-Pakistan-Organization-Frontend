@@ -33,12 +33,11 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { FormEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:3000/api'
 const AUTH_STORAGE_KEY = 'dpo-admin-session'
-const DEFAULT_ADMIN_PASSWORD = 'admin123'
 
 const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, active: true },
@@ -114,6 +113,7 @@ type AdminSession = {
   name: string
   email: string
   role: string
+  token: string
 }
 
 const moduleResources: Record<string, string[]> = {
@@ -137,18 +137,24 @@ const moduleResources: Record<string, string[]> = {
   'Audit Logs': ['audit-logs'],
 }
 
-async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`)
+function authHeaders(token?: string) {
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
+async function apiGet<T>(path: string, token?: string): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { headers: authHeaders(token) })
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`)
   }
   return response.json() as Promise<T>
 }
 
-async function apiSend<T>(path: string, method: 'POST' | 'PATCH', payload: Record<string, unknown> = {}): Promise<T> {
+async function apiSend<T>(path: string, method: 'POST' | 'PATCH', payload: Record<string, unknown> = {}, token?: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify(payload),
   })
   if (!response.ok) {
@@ -157,14 +163,14 @@ async function apiSend<T>(path: string, method: 'POST' | 'PATCH', payload: Recor
   return response.json() as Promise<T>
 }
 
-async function apiDelete(path: string): Promise<void> {
-  const response = await fetch(`${API_BASE}${path}`, { method: 'DELETE' })
+async function apiDelete(path: string, token?: string): Promise<void> {
+  const response = await fetch(`${API_BASE}${path}`, { method: 'DELETE', headers: authHeaders(token) })
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`)
   }
 }
 
-function useDpoApi(): ApiState {
+function useDpoApi(authToken?: string): ApiState {
   const [state, setState] = useState<ApiState>({
     dashboard: null,
     database: null,
@@ -188,18 +194,18 @@ function useDpoApi(): ApiState {
     },
   })
 
-  const reload = async () => {
+  const reload = useCallback(async () => {
       try {
         setState((current) => ({ ...current, loading: true, error: null }))
         const [dashboard, database, schemas] = await Promise.all([
-          apiGet<DashboardSummary>('/admin/dashboard'),
-          apiGet<DatabaseStatus>('/admin/database/status'),
-          apiGet<ResourceSchema[]>('/admin/schemas'),
+          apiGet<DashboardSummary>('/admin/dashboard', authToken),
+          apiGet<DatabaseStatus>('/admin/database/status', authToken),
+          apiGet<ResourceSchema[]>('/admin/schemas', authToken),
         ])
         const resourceNames = schemas.map((schema) => schema.resource)
         const lists = await Promise.all(
           resourceNames.map((resource) =>
-            apiGet<ListResponse>(`/admin/${resource}?limit=100`).then((response) => [resource, response.data] as const),
+            apiGet<ListResponse>(`/admin/${resource}?limit=100`, authToken).then((response) => [resource, response.data] as const),
           ),
         )
         setState((current) => ({
@@ -218,30 +224,30 @@ function useDpoApi(): ApiState {
           error: error instanceof Error ? error.message : 'Backend connection failed',
         }))
       }
-    }
+    }, [authToken])
 
   const createRecord = async (resource: string, payload: Record<string, unknown>) => {
-    const record = await apiSend<DpoRecord>(`/admin/${resource}`, 'POST', payload)
+    const record = await apiSend<DpoRecord>(`/admin/${resource}`, 'POST', payload, authToken)
     await reload()
     setState((current) => ({ ...current, notice: `${resource} record created` }))
     return record
   }
 
   const updateRecord = async (resource: string, id: string, payload: Record<string, unknown>) => {
-    const record = await apiSend<DpoRecord>(`/admin/${resource}/${id}`, 'PATCH', payload)
+    const record = await apiSend<DpoRecord>(`/admin/${resource}/${id}`, 'PATCH', payload, authToken)
     await reload()
     setState((current) => ({ ...current, notice: `${resource} record updated` }))
     return record
   }
 
   const deleteRecord = async (resource: string, id: string) => {
-    await apiDelete(`/admin/${resource}/${id}`)
+    await apiDelete(`/admin/${resource}/${id}`, authToken)
     await reload()
     setState((current) => ({ ...current, notice: `${resource} record deleted` }))
   }
 
   const runAction = async (resource: string, id: string, action: string, payload: Record<string, unknown> = {}) => {
-    const result = await apiSend<unknown>(`/admin/${resource}/${id}/actions/${action}`, 'POST', payload)
+    const result = await apiSend<unknown>(`/admin/${resource}/${id}/actions/${action}`, 'POST', payload, authToken)
     await reload()
     setState((current) => ({ ...current, notice: `${titleStatus(action)} completed` }))
     return result
@@ -249,13 +255,14 @@ function useDpoApi(): ApiState {
 
   useEffect(() => {
     let active = true
+    if (!authToken) return
     void reload().finally(() => {
       if (!active) return
     })
     return () => {
       active = false
     }
-  }, [])
+  }, [authToken, reload])
 
   return { ...state, reload, createRecord, updateRecord, deleteRecord, runAction }
 }
@@ -270,11 +277,12 @@ function getStoredSession(): AdminSession | null {
     const stored = localStorage.getItem(AUTH_STORAGE_KEY)
     if (!stored) return null
     const parsed = JSON.parse(stored) as Partial<AdminSession>
-    if (!parsed.email || !parsed.name) return null
+    if (!parsed.email || !parsed.name || !parsed.token) return null
     return {
       name: toText(parsed.name),
       email: toText(parsed.email),
       role: toText(parsed.role) || 'Admin',
+      token: toText(parsed.token),
     }
   } catch {
     return null
@@ -305,7 +313,7 @@ function AdminApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [session, setSession] = useState<AdminSession | null>(() => getStoredSession())
   const [theme, setTheme] = useState(() => localStorage.getItem('dpo-admin-theme') === 'dark' ? 'dark' : 'light')
-  const apiState = useDpoApi()
+  const apiState = useDpoApi(session?.token)
   const setActiveNav = (value: string) => {
     setActiveNavState(value)
     window.location.hash = encodeURIComponent(value)
@@ -314,11 +322,11 @@ function AdminApp() {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession))
     setSession(nextSession)
   }
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY)
     setSession(null)
     setSearchQuery('')
-  }
+  }, [])
   const toggleTheme = () => {
     setTheme((current) => {
       const nextTheme = current === 'dark' ? 'light' : 'dark'
@@ -328,7 +336,7 @@ function AdminApp() {
   }
 
   if (!session) {
-    return <LoginScreen apiState={apiState} onLogin={handleLogin} />
+    return <LoginScreen onLogin={handleLogin} />
   }
 
   return (
@@ -383,25 +391,28 @@ function Sidebar({ activeNav, setActiveNav, collapsed }: { activeNav: string; se
   )
 }
 
-function LoginScreen({ apiState, onLogin }: { apiState: ApiState; onLogin: (session: AdminSession) => void }) {
+function LoginScreen({ onLogin }: { onLogin: (session: AdminSession) => void }) {
   const [email, setEmail] = useState('admin@dpo.local')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const adminUsers = apiState.records['admin-users'] ?? []
-  const submitLogin = (event: FormEvent<HTMLFormElement>) => {
+  const [submitting, setSubmitting] = useState(false)
+  const submitLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const normalizedEmail = email.trim().toLowerCase()
-    const adminUser = adminUsers.find((user) => toText(user.email).toLowerCase() === normalizedEmail)
-    const fallbackAdmin = normalizedEmail === 'admin@dpo.local'
-    if ((!adminUser && !fallbackAdmin) || password !== DEFAULT_ADMIN_PASSWORD) {
+    setError('')
+    setSubmitting(true)
+    try {
+      const response = await apiSend<{ token: string; user: Omit<AdminSession, 'token'> }>('/auth/login', 'POST', { email, password })
+      onLogin({
+        name: toText(response.user.name),
+        email: toText(response.user.email),
+        role: toText(response.user.role),
+        token: response.token,
+      })
+    } catch {
       setError('Invalid email or password.')
-      return
+    } finally {
+      setSubmitting(false)
     }
-    onLogin({
-      name: toText(adminUser?.name) || 'Super Admin',
-      email: toText(adminUser?.email) || normalizedEmail,
-      role: toText(adminUser?.role) || 'Super Admin',
-    })
   }
 
   return (
@@ -424,7 +435,7 @@ function LoginScreen({ apiState, onLogin }: { apiState: ApiState; onLogin: (sess
             <div><Lock size={17} /><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter password" /></div>
           </label>
           {error && <p className="login-error">{error}</p>}
-          <button type="submit">Login</button>
+          <button type="submit" disabled={submitting}>{submitting ? 'Checking...' : 'Login'}</button>
         </form>
       </section>
     </main>
@@ -482,8 +493,8 @@ function Navbar({ activeNav, apiState, searchQuery, setSearchQuery, session, the
               </div>
               {notifications.length ? notifications.map((notification) => (
                 <button className="notification-item" type="button" key={notification.id}>
-                  <span>{toText(notification.channel) || 'Alert'}</span>
-                  <b>{toText(notification.event) || toText(notification.subject) || 'Notification'}</b>
+                  <span>{toText(notification.channel) || 'system'}</span>
+                  <b>{toText(notification.subject) || toText(notification.message) || toText(notification.event)}</b>
                   <small>{formatDate(notification.sentAt ?? notification.createdAt)}</small>
                 </button>
               )) : <p className="empty-notifications">No notifications found.</p>}
@@ -898,6 +909,9 @@ function ModuleScreen({ moduleName, apiState, searchQuery }: { moduleName: strin
   }
   if (moduleName === 'Active Designations') {
     return <ActiveDesignationsScreen apiState={apiState} searchQuery={searchQuery} />
+  }
+  if (moduleName === 'Designation Renewals') {
+    return <DesignationRenewalsScreen apiState={apiState} searchQuery={searchQuery} />
   }
   if (moduleName === 'Website CMS') {
     return <WebsiteCmsScreen apiState={apiState} searchQuery={searchQuery} />
@@ -1717,6 +1731,140 @@ function ActiveDesignationsScreen({ apiState, searchQuery }: { apiState: ApiStat
 
       {creating && <CreateRecordModal resource="active-designations" apiState={apiState} onClose={() => setCreating(false)} />}
       {drawerState && <RecordDrawer title="Active Designation" resource="active-designations" record={drawerState.record} apiState={apiState} startEditing={drawerState.editing} onClose={() => setDrawerState(null)} />}
+      {actionMessage && (
+        <div className="action-toast" role="status">
+          <span>{actionMessage}</span>
+          <button type="button" onClick={() => setActionMessage(null)}>Close</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DesignationRenewalsScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
+  const [status, setStatus] = useState('All')
+  const [district, setDistrict] = useState('All Districts')
+  const [selectedRenewal, setSelectedRenewal] = useState<DpoRecord | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const renewals = apiState.records['designation-renewals'] ?? []
+  const today = new Date()
+  const inThirtyDays = new Date(today)
+  inThirtyDays.setDate(today.getDate() + 30)
+  const visibleRenewals = renewals.filter((renewal) => {
+    const matchesSearch = searchQuery ? searchableText(renewal).includes(searchQuery.toLowerCase()) : true
+    const matchesStatus = status === 'All' || normalizeStatus(renewal.status) === normalizeStatus(status)
+    const matchesDistrict = district === 'All Districts' || toText(renewal.district) === district
+    return matchesSearch && matchesStatus && matchesDistrict
+  })
+  const activeRenewal = selectedRenewal ?? visibleRenewals[0]
+  const pending = renewals.filter((renewal) => normalizeStatus(renewal.status) === 'pending').length
+  const approved = renewals.filter((renewal) => normalizeStatus(renewal.status) === 'approved').length
+  const expiringThisMonth = renewals.filter((renewal) => {
+    const expiry = new Date(toText(renewal.expiryDate))
+    return Number.isFinite(expiry.getTime()) && expiry >= today && expiry <= inThirtyDays
+  }).length
+  const statusOptions = ['All', ...Array.from(new Set(renewals.map((renewal) => titleStatus(renewal.status)).filter(Boolean)))]
+  const districtOptions = ['All Districts', ...Array.from(new Set(renewals.map((renewal) => toText(renewal.district)).filter(Boolean)))]
+  const exportRenewals = () => downloadCsv('Designation Renewals', visibleRenewals.map((record) => ({
+    cells: ['renewalNumber', 'holder', 'designation', 'district', 'expiryDate', 'paymentStatus', 'status'].map((key) => formatCompactValue(record[key])),
+  })))
+  const handleRenewalAction = async (renewal: DpoRecord, nextStatus: 'approved' | 'rejected') => {
+    try {
+      await apiState.updateRecord('designation-renewals', renewal.id, { status: nextStatus })
+      setSelectedRenewal({ ...renewal, status: nextStatus })
+      setActionMessage(`${toText(renewal.holder) || 'Renewal'} ${nextStatus}.`)
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : 'Renewal action failed.')
+    }
+  }
+
+  return (
+    <div className="dashboard-wrap renewal-page">
+      <section className="member-kpis">
+        <MemberKpi icon={Clock} label="Pending Renewals" value={pending} note="Requires your action" tone="warning" />
+        <MemberKpi icon={CircleCheck} label="Approved Renewals" value={approved} note="This year" tone="success" />
+        <MemberKpi icon={CalendarDays} label="Expiring This Month" value={expiringThisMonth} note="Due within 30 days" tone="warning" />
+      </section>
+
+      <section className="members-table-panel renewal-table-panel">
+        <div className="members-toolbar renewal-toolbar">
+          <label className="filter-field search-filter">
+            <span>Search</span>
+            <div className="local-search-box"><Search size={16} /><input value={searchQuery} readOnly placeholder="Use top search bar" /></div>
+          </label>
+          <label className="filter-field">
+            <span>Status</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>{statusOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <label className="filter-field">
+            <span>District</span>
+            <select value={district} onChange={(event) => setDistrict(event.target.value)}>{districtOptions.map((item) => <option key={item}>{item}</option>)}</select>
+          </label>
+          <button className="soft-action" type="button" onClick={exportRenewals}><Download size={15} /> Export</button>
+        </div>
+        <div className="production-table-scroll">
+          <table className="production-members-table renewal-table">
+            <thead>
+              <tr>{['Renewal No', 'Holder', 'Designation', 'District', 'Expiry Date', 'Payment', 'Status', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
+            </thead>
+            <tbody>
+              {visibleRenewals.map((renewal) => {
+                const isApproved = normalizeStatus(renewal.status) === 'approved'
+                const isRejected = normalizeStatus(renewal.status) === 'rejected'
+                return (
+                  <tr className={activeRenewal?.id === renewal.id ? 'selected-row' : ''} key={renewal.id} onClick={() => setSelectedRenewal(renewal)}>
+                    <td>{toText(renewal.renewalNumber ?? renewal.id)}</td>
+                    <td><b>{toText(renewal.holder ?? renewal.name)}</b></td>
+                    <td>{toText(renewal.designation)}</td>
+                    <td>{toText(renewal.district)}</td>
+                    <td>{formatDate(renewal.expiryDate)}</td>
+                    <td><Status>{titleStatus(renewal.paymentStatus)}</Status></td>
+                    <td><Status>{titleStatus(renewal.status)}</Status></td>
+                    <td>
+                      <div className="member-row-actions">
+                        {!isApproved && <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); void handleRenewalAction(renewal, 'approved') }}>Approve</button>}
+                        {!isRejected && <button className="reject-row" type="button" onClick={(event) => { event.stopPropagation(); void handleRenewalAction(renewal, 'rejected') }}>Reject</button>}
+                        <button className="icon-table-btn view-btn" type="button" aria-label="View renewal" onClick={(event) => { event.stopPropagation(); setSelectedRenewal(renewal) }}><Eye size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="members-pagination">
+          <span>Showing 1 to {visibleRenewals.length} of {renewals.length} designation renewals</span>
+          <div>
+            <button type="button">&lt;</button>
+            <button className="active" type="button">1</button>
+            <button type="button">&gt;</button>
+          </div>
+        </div>
+      </section>
+
+      {activeRenewal && (
+        <section className="renewal-review-panel">
+          <ReviewBlock title="Renewal Details" pairs={[
+            ['Renewal No', toText(activeRenewal.renewalNumber ?? activeRenewal.id)],
+            ['Holder', toText(activeRenewal.holder ?? activeRenewal.name)],
+            ['Designation', toText(activeRenewal.designation)],
+            ['District', toText(activeRenewal.district)],
+            ['Expiry Date', formatDate(activeRenewal.expiryDate)],
+            ['Payment', titleStatus(activeRenewal.paymentStatus)],
+          ]} />
+          <div className="renewal-decision-card">
+            <h3>Admin Decision</h3>
+            <span>Review the renewal request and take action.</span>
+            <textarea placeholder="Add remarks here..." />
+            <div>
+              {normalizeStatus(activeRenewal.status) !== 'approved' && <button className="primary-action" type="button" onClick={() => void handleRenewalAction(activeRenewal, 'approved')}>Approve Renewal</button>}
+              {normalizeStatus(activeRenewal.status) !== 'rejected' && <button className="reject-row" type="button" onClick={() => void handleRenewalAction(activeRenewal, 'rejected')}>Reject</button>}
+            </div>
+          </div>
+        </section>
+      )}
+
       {actionMessage && (
         <div className="action-toast" role="status">
           <span>{actionMessage}</span>

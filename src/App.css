@@ -2262,6 +2262,99 @@ tbody tr {
   border-color: #fecdca;
 }
 
+.renewal-page {
+  display: grid;
+  gap: 16px;
+}
+
+.renewal-toolbar {
+  grid-template-columns: minmax(260px, 1.1fr) minmax(150px, .6fr) minmax(150px, .6fr) auto;
+  align-items: end;
+}
+
+.renewal-table {
+  min-width: 1120px;
+}
+
+.renewal-table th:nth-child(1),
+.renewal-table td:nth-child(1) { width: 132px; }
+.renewal-table th:nth-child(2),
+.renewal-table td:nth-child(2) { width: 170px; }
+.renewal-table th:nth-child(3),
+.renewal-table td:nth-child(3) { width: 180px; }
+.renewal-table th:nth-child(4),
+.renewal-table td:nth-child(4) { width: 110px; }
+.renewal-table th:nth-child(5),
+.renewal-table td:nth-child(5) { width: 115px; }
+.renewal-table th:nth-child(6),
+.renewal-table td:nth-child(6),
+.renewal-table th:nth-child(7),
+.renewal-table td:nth-child(7) { width: 92px; }
+.renewal-table th:nth-child(8),
+.renewal-table td:nth-child(8) {
+  width: 230px;
+  overflow: visible;
+  text-align: right;
+}
+
+.renewal-table .selected-row td {
+  background: #fbfdf9;
+}
+
+.renewal-review-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.renewal-review-panel .designation-review-block,
+.renewal-decision-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e6ece8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.renewal-review-panel .designation-review-block {
+  border-right: 1px solid #e6ece8;
+}
+
+.renewal-decision-card {
+  display: grid;
+  gap: 10px;
+}
+
+.renewal-decision-card h3 {
+  margin: 0;
+  color: var(--text-high-em);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.renewal-decision-card span {
+  color: var(--text-low-em);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.renewal-decision-card textarea {
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 1px solid var(--outline-base-em);
+  border-radius: 8px;
+  color: var(--text-high-em);
+  background: var(--surface-1);
+  font: inherit;
+  resize: vertical;
+}
+
+.renewal-decision-card div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .designation-decision-bar b {
   color: var(--text-high-em);
   font-size: 14px;
