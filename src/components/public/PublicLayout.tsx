@@ -117,8 +117,8 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             <Link to="/" className="dpo-brand">
               <img src={brand.assets.logo} alt={`${organization.name} logo`} />
               <span>
-                <b>Defenders of Pakistan</b>
-                <small>Organization</small>
+                <b>Defenders of Pakistan Organization</b>
+                <small>DPO</small>
               </span>
             </Link>
 

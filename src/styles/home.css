@@ -173,8 +173,8 @@
 }
 
 .dpo-brand img {
-  width: 56px;
-  height: 56px;
+  width: 70px;
+  height: 70px;
   flex: 0 0 auto;
   object-fit: contain;
 }
@@ -188,18 +188,20 @@
 .dpo-brand b {
   color: var(--dpo-forest);
   font-family: var(--dpo-display);
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.05;
   text-transform: uppercase;
 }
 
+ 
+
 .dpo-brand small {
-  margin-top: 4px;
-  color: var(--dpo-green);
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
+    margin-top: -3px;
+    color: var(--dpo-green);
+    font-size: 16px;
+    font-weight: 800;
+    text-transform: uppercase;
 }
 
 .dpo-nav {
