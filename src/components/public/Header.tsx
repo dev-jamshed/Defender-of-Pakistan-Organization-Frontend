@@ -1,4 +1,3 @@
-import React from 'react';
 import { Phone, Mail } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import logoBadge from '../../assets/hero_badge.png'; // Use a small version of badge if we don't have separate logo

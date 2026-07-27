@@ -1,4 +1,3 @@
-import React from 'react';
 import { Users, CheckCircle, HandHeart, MapPin } from 'lucide-react';
 import logoBadge from '../../assets/hero_badge.png';
 

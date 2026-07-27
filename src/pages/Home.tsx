@@ -1,496 +1,201 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { motion, useInView, useReducedMotion } from 'framer-motion'
 import {
-  Phone, Mail, Shield, Users, HeartHandshake, GraduationCap,
-  Flag, BookOpen, UserPlus, FileText, CalendarDays, Download,
-  Image as ImageIcon, Star, CheckCircle, MapPin, ChevronRight, ArrowRight
-} from 'lucide-react';
-import '../styles/home.css';
-import heroBg   from '../assets/hero-bg.png';
-import badgeImg from '../assets/hero_badge.png';
-import merchImg from '../assets/merch.png';
-import joinImg  from '../assets/join_mission.png';
-import aboutImg from '../assets/about_section.png';
+  ArrowDown,
+  ArrowRight,
+  BadgeCheck,
+  BookOpen,
+  CheckCircle2,
+  CreditCard,
+  Flag,
+  GraduationCap,
+  HandHeart,
+  HeartHandshake,
+  Shield,
+  Sparkles,
+  UserPlus,
+  Users,
+} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Reveal, Stagger, StaggerItem, TextReveal } from '../components/public/Motion'
+import PublicLayout from '../components/public/PublicLayout'
+import { CtaBand, SectionHeader } from '../components/public/PublicUi'
+import { about, actionPlan, brand, coreValues, hero, quickStats } from '../content/publicContent'
 
-/* ══════════════════════════════════════════
-   HOOK: Intersection Observer for scroll reveal
-══════════════════════════════════════════ */
-function useScrollReveal(className = 'sr') {
-  useEffect(() => {
-    const els = document.querySelectorAll(`.${className}`);
-    const io  = new IntersectionObserver(
-      entries => entries.forEach(e => {
-        if (e.isIntersecting) {
-          e.target.classList.add('sr--visible');
-          io.unobserve(e.target);
-        }
-      }),
-      { threshold: 0.12 }
-    );
-    els.forEach(el => io.observe(el));
-    return () => io.disconnect();
-  }, [className]);
-}
+const pillars = [
+  { icon: Shield, title: 'National strength', text: 'Respect for institutions and rule of law.' },
+  { icon: GraduationCap, title: 'Youth leadership', text: 'Preparing responsible future citizens.' },
+  { icon: HeartHandshake, title: 'Community service', text: 'Welfare without discrimination.' },
+  { icon: BookOpen, title: 'Education', text: 'Knowledge, awareness and civic learning.' },
+  { icon: Flag, title: 'National unity', text: 'One identity across every community.' },
+]
 
-/* ══════════════════════════════════════════
-   HOOK: Animate counter numbers
-══════════════════════════════════════════ */
-function useCountUp(target: number, duration = 1800, start = false) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!start) return;
-    let startTime: number | null = null;
-    const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      setCount(Math.floor(progress * target));
-      if (progress < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [target, duration, start]);
-  return count;
-}
-
-/* ══════════════════════════════════════════
-   HEADER
-══════════════════════════════════════════ */
-function Header() {
-  const { pathname } = useLocation();
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+export default function Home() {
+  const reduceMotion = useReducedMotion()
 
   return (
-    <>
-      <div className="topbar">
-        <div className="container topbar__inner">
-          <div className="topbar__contact">
-            <span className="topbar__contact-item"><Phone size={13}/> +92 300 1234567</span>
-            <span className="topbar__contact-item"><Mail size={13}/> info@defendersofpakistan.org</span>
+    <PublicLayout>
+      <section className="dpo-home-hero">
+        <motion.img
+          className="dpo-home-hero__image"
+          src="/dpo-assets/home-hero-v2.jpg"
+          alt="People serving their community near Minar-e-Pakistan"
+          initial={reduceMotion ? false : { scale: 1.08 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 2.2, ease: [0.22, 1, 0.36, 1] }}
+        />
+        <div className="dpo-home-hero__overlay" />
+        <div className="dpo-home-hero__grid-lines" aria-hidden="true" />
+        <div className="dpo-container dpo-home-hero__grid">
+          <div className="dpo-home-hero__copy">
+            <Reveal><div className="dpo-hero-kicker"><span /> {hero.eyebrow}</div></Reveal>
+            <TextReveal>{hero.titleLines.join(' ')}</TextReveal>
+            <Reveal delay={0.42}><p>{hero.text}</p></Reveal>
+            <Reveal delay={0.56} className="dpo-actions">
+              <Link className="dpo-button dpo-button--gold" to="/apply/membership"><UserPlus size={17} /> {hero.primaryCta}</Link>
+              <Link className="dpo-button dpo-button--outline-light" to="/about">{hero.secondaryCta}<ArrowRight size={17} /></Link>
+            </Reveal>
+            <Reveal delay={0.72} className="dpo-hero-trust">
+              <div className="dpo-hero-trust__icons"><Shield size={18} /><Users size={18} /><HandHeart size={18} /></div>
+              <span>Patriotism</span><i /> <span>Unity</span><i /> <span>Service</span>
+            </Reveal>
           </div>
-          <div className="topbar__social">
-            <span>Follow Us:</span>
-            {['FB','IG','YT','X','TK'].map(s => <a key={s} href="#">{s}</a>)}
-          </div>
+
+          <motion.div
+            className="dpo-hero-emblem"
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.72, rotate: -8 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ delay: 0.35, duration: 1, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="dpo-hero-emblem__ring dpo-hero-emblem__ring--outer" />
+            <div className="dpo-hero-emblem__ring dpo-hero-emblem__ring--inner" />
+            <img src={brand.assets.logo} alt="DPO official emblem" />
+            <span className="dpo-hero-emblem__orbit">DPO</span>
+            <div><strong>Serve with pride</strong><small>Together for Pakistan</small></div>
+          </motion.div>
         </div>
-      </div>
+        <a className="dpo-scroll-cue" href="#pillars"><span>Explore</span><ArrowDown size={17} /></a>
+      </section>
 
-      <nav className="navbar" style={{ boxShadow: scrolled ? '0 4px 32px rgba(0,0,0,.12)' : undefined }}>
-        <div className="container navbar__inner">
-          <Link to="/" className="navbar__logo">
-            <div className="navbar__logo-badge">
-              <img src={badgeImg} alt="DPO Emblem"/>
-            </div>
-            <div className="navbar__logo-text">
-              <span className="navbar__logo-name">Defenders of<br/>Pakistan Organization</span>
-              <span className="navbar__logo-tagline">One Flag · One Nation · One Pakistan</span>
-            </div>
-          </Link>
-
-          <div className="navbar__nav">
-            {([
-              ['/', 'Home'], ['#about', 'About Us'], ['#action', 'Action Plan'],
-              ['#membership', 'Membership'], ['#gallery', 'Gallery'],
-              ['#news', 'News'], ['#contact', 'Contact'],
-            ] as [string,string][]).map(([href, label]) => (
-              <Link key={label} to={href}
-                className={`navbar__link${pathname === href ? ' navbar__link--active' : ''}`}>
-                {label}
-              </Link>
-            ))}
-            <Link to="#membership" className="btn btn-primary"
-              style={{ marginLeft: '.5rem', padding: '.6rem 1.25rem', fontSize: '.78rem' }}>
-              <UserPlus size={14}/> JOIN NOW
-            </Link>
-          </div>
-        </div>
-      </nav>
-    </>
-  );
-}
-
-/* ══════════════════════════════════════════
-   FOOTER
-══════════════════════════════════════════ */
-function Footer() {
-  return (
-    <footer className="footer">
-      <div className="container">
-        <div className="footer__top">
-          <div className="footer__brand">
-            <div className="footer__brand-logo">
-              <div className="footer__brand-badge"><img src={badgeImg} alt="DPO"/></div>
-              <div>
-                <div className="footer__brand-name">Defenders of<br/>Pakistan Org.</div>
-                <div className="footer__brand-tagline">One Flag · One Nation · One Pakistan</div>
-              </div>
-            </div>
-            <p className="footer__brand-desc">
-              A non-profit organization committed to patriotism, national unity, youth
-              empowerment, community welfare, education and human service for a strong,
-              peaceful and progressive Pakistan.
-            </p>
-          </div>
-
-          {[
-            {
-              title: 'Quick Links',
-              links: ['Home','About Us','Action Plan','Membership','Leadership','Gallery','News','Contact Us'],
-            },
-            {
-              title: 'Our Programs',
-              links: ['National Unity','Education Support','Community Welfare','Youth Empowerment','Patriotism Drive','Official Merchandise'],
-            },
-            {
-              title: 'Contact',
-              links: ['+92 300 1234567','info@defendersofpakistan.org','Islamabad, Pakistan'],
-            },
-          ].map(col => (
-            <div key={col.title}>
-              <p className="footer__col-title">{col.title}</p>
-              <ul className="footer__links">
-                {col.links.map(l => <li key={l}><a href="#">{l}</a></li>)}
-              </ul>
-            </div>
+      <section className="dpo-pillars" id="pillars">
+        <div className="dpo-container dpo-pillars__grid">
+          {pillars.map(({ icon: Icon, title, text }, index) => (
+            <motion.article key={title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.07 }}>
+              <span>0{index + 1}</span><Icon size={21} /><div><h3>{title}</h3><p>{text}</p></div>
+            </motion.article>
           ))}
         </div>
-        <div className="footer__bottom">
-          <span>&copy; {new Date().getFullYear()} Defenders of Pakistan Organization. All rights reserved.</span>
-          <span>Designed with ❤️ for Pakistan</span>
-        </div>
-      </div>
-    </footer>
-  );
-}
+      </section>
 
-/* ══════════════════════════════════════════
-   STAT BOX (with count-up)
-══════════════════════════════════════════ */
-function StatBox({ icon, num, suffix, label }: { icon: React.ReactNode; num: number; suffix: string; label: string }) {
-  const ref  = useRef<HTMLDivElement>(null);
-  const [started, setStarted] = useState(false);
-  const count = useCountUp(num, 1800, started);
-
-  useEffect(() => {
-    const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setStarted(true); io.disconnect(); }
-    }, { threshold: 0.4 });
-    if (ref.current) io.observe(ref.current);
-    return () => io.disconnect();
-  }, []);
-
-  return (
-    <div ref={ref} className="stat-box sr sr--d2">
-      <span className="stat-box__icon">{icon}</span>
-      <div>
-        <strong className="stat-box__num">{count.toLocaleString()}{suffix}</strong>
-        <span className="stat-box__label">{label}</span>
-      </div>
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════
-   HOME PAGE
-══════════════════════════════════════════ */
-export default function Home() {
-  useScrollReveal('sr');
-
-  /* Hero text-reveal on mount */
-  const [heroVisible, setHeroVisible] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setHeroVisible(true), 100);
-    return () => clearTimeout(t);
-  }, []);
-
-  const vv = heroVisible ? ' hero__title-line--visible' : '';
-
-  const quickTiles = [
-    { icon: <UserPlus size={26}/>, label: 'Membership', desc: 'Apply for official DPO membership and receive your membership card.' },
-    { icon: <Shield size={26}/>, label: 'Designations', desc: 'Apply for a designation, view your rank and designation status.' },
-    { icon: <CalendarDays size={26}/>, label: 'Events', desc: 'Browse upcoming DPO events, rallies, and national programs.' },
-    { icon: <ImageIcon size={26}/>, label: 'Gallery', desc: 'Explore photos and media from our nationwide activities.' },
-    { icon: <Download size={26}/>, label: 'Downloads', desc: 'Download official forms, ID cards, certificates and documents.' },
-    { icon: <FileText size={26}/>, label: 'Documents', desc: 'Access constitutions, by-laws, and official organization documents.' },
-  ];
-
-  return (
-    <div className="public-layout">
-      <Header/>
-
-      {/* ══ HERO ══ */}
-      <section className="hero" id="home">
-        <div className="hero__bg">
-          <div className="hero__overlay"/>
-          <img src={heroBg} alt="Minar-e-Pakistan at sunrise"/>
-        </div>
-
-        <div className="hero__scroll-hint">
-          <span>Scroll</span>
-          <div className="hero__scroll-mouse"/>
-        </div>
-
-        <div className="container">
-          <div className="hero__layout">
-
-            {/* LEFT: Headline + CTA */}
-            <div className="hero__text">
-              <div className="hero__eyebrow">
-                <span className="hero__eyebrow-pulse"/>
-                Defenders of Pakistan Organization
-              </div>
-
-              {/* Line-by-line text reveal */}
-              <div className="hero__title-wrap">
-                <span className={`hero__title-line${vv}`}>One Flag</span>
-              </div>
-              <div className="hero__title-wrap">
-                <span className={`hero__title-line${vv}`}>One Nation</span>
-              </div>
-              <div className="hero__title-wrap" style={{ marginBottom: '0.15rem' }}>
-                <span className={`hero__title-line hero__title-line--accent${vv}`}>One Pakistan</span>
-              </div>
-
-              <div className="hero__desc-wrap">
-                <p className={`hero__desc${heroVisible ? ' hero__desc--visible' : ''}`}>
-                  A non-profit organization committed to patriotism, national unity, youth
-                  empowerment, community welfare and education — building a strong, peaceful
-                  and progressive Pakistan.
-                </p>
-              </div>
-
-              <div className={`hero__actions${heroVisible ? ' hero__actions--visible' : ''}`}>
-                <button className="btn btn-gold"><UserPlus size={17}/> Become a Member</button>
-                <button className="btn btn-outline"><ChevronRight size={17}/> Learn More</button>
-              </div>
-            </div>
-
-            {/* RIGHT: Badge + Values */}
-            <div className="hero__right">
-              {/* Floating badge */}
-              <div className={`hero__badge-wrap${heroVisible ? ' hero__badge-wrap--visible' : ''}`}>
-                <div className="hero__badge-ring"/>
-                <div className="hero__badge-ring2"/>
-                <img src={badgeImg} alt="DPO Emblem"/>
-              </div>
-
-              {/* Value cards */}
-              <div className="hero__values">
-                {[
-                  { icon: <Shield size={19}/>, title: 'PATRIOTISM', sub: 'Love for Country' },
-                  { icon: <Users size={19}/>, title: 'UNITY', sub: 'Strength in Togetherness' },
-                  { icon: <HeartHandshake size={19}/>, title: 'SERVICE', sub: 'Welfare for All' },
-                  { icon: <GraduationCap size={19}/>, title: 'EMPOWERMENT', sub: 'Youth are the Future' },
-                ].map((v, i) => (
-                  <div
-                    key={v.title}
-                    className={`hero__value-card${heroVisible ? ' hero__value-card--visible' : ''}`}
-                    style={{ transitionDelay: `${0.2 + i * 0.12}s` }}
-                  >
-                    <div className="hero__value-icon">{v.icon}</div>
-                    <div className="hero__value-body">
-                      <h4>{v.title}</h4>
-                      <p>{v.sub}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+      <section className="dpo-section dpo-section--paper">
+        <div className="dpo-container dpo-home-about">
+          <Reveal direction="left" className="dpo-home-about__media">
+            <img src="/dpo-assets/home-mission-v2.jpg" alt="DPO volunteers distributing books" />
+            <div className="dpo-home-about__seal"><Sparkles size={19} /><strong>Service-led</strong><span>Across Pakistan</span></div>
+            <span className="dpo-home-about__caption">Community. Education. Nation.</span>
+          </Reveal>
+          <div className="dpo-home-about__content">
+            <SectionHeader eyebrow="Who We Are" title={about.headline} text={about.body} />
+            <Stagger className="dpo-about-principles">
+              <StaggerItem><article><span>01</span><div><h3>Our mission</h3><p>{about.mission}</p></div></article></StaggerItem>
+              <StaggerItem><article><span>02</span><div><h3>Our vision</h3><p>{about.vision}</p></div></article></StaggerItem>
+            </Stagger>
+            <Reveal delay={0.15}><Link className="dpo-text-link" to="/about">Discover our story <ArrowRight size={17} /></Link></Reveal>
           </div>
         </div>
       </section>
 
-      {/* ══ PILLARS BAR ══ */}
-      <section className="pillars" id="action">
-        <div className="container">
-          <div className="pillars__grid">
+      <section className="dpo-impact-band">
+        <div className="dpo-impact-band__texture" aria-hidden="true" />
+        <div className="dpo-container dpo-impact-band__head">
+          <Reveal><span className="dpo-eyebrow">Our growing impact</span><h2>Progress measured through participation.</h2></Reveal>
+          <Reveal delay={0.12}><p>Every number represents people choosing awareness, responsibility and public service.</p></Reveal>
+        </div>
+        <div className="dpo-container dpo-impact-band__grid">
+          {quickStats.map(({ label, value, icon: Icon }) => <CounterStat key={label} value={value} label={label} icon={Icon} />)}
+        </div>
+      </section>
+
+      <section className="dpo-section dpo-section--white dpo-values-section">
+        <div className="dpo-container">
+          <SectionHeader eyebrow="Our Foundation" title="Values that shape every decision." text="Clear principles keep public service accountable, inclusive and focused on long-term national progress." />
+          <Stagger className="dpo-values-grid">
+            {coreValues.map(({ icon: Icon, title, text }, index) => (
+              <StaggerItem key={title}>
+                <article className="dpo-value-row"><span>{String(index + 1).padStart(2, '0')}</span><Icon size={22} /><div><h3>{title}</h3><p>{text}</p></div></article>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
+      </section>
+
+      <section className="dpo-section dpo-roadmap-home">
+        <div className="dpo-container dpo-roadmap-home__layout">
+          <div className="dpo-roadmap-home__intro">
+            <SectionHeader eyebrow="7-Point Action Plan" title="A practical roadmap for a stronger Pakistan." text="Seven connected priorities turn a national promise into focused, public-facing action." />
+            <Link className="dpo-button" to="/action-plan">Explore the plan <ArrowRight size={17} /></Link>
+          </div>
+          <Stagger className="dpo-roadmap-home__list">
+            {actionPlan.map(({ title, text, icon: Icon }, index) => (
+              <StaggerItem key={title}>
+                <Link to="/action-plan" className="dpo-roadmap-home__item">
+                  <span>{String(index + 1).padStart(2, '0')}</span><Icon size={20} /><div><h3>{title}</h3><p>{text}</p></div><ArrowRight size={17} />
+                </Link>
+              </StaggerItem>
+            ))}
+          </Stagger>
+        </div>
+      </section>
+
+      <section className="dpo-section dpo-member-journey">
+        <div className="dpo-container">
+          <SectionHeader eyebrow="Membership" title="Your service journey starts here." text="A transparent path from choosing your membership type to receiving an official, verifiable identity." align="center" />
+          <Stagger className="dpo-member-steps">
             {[
-              { icon: <Users size={22}/>, title: 'National Unity', desc: 'Promoting harmony and brotherhood across Pakistan.' },
-              { icon: <BookOpen size={22}/>, title: 'Education', desc: 'Supporting quality education and skill development.' },
-              { icon: <HeartHandshake size={22}/>, title: 'Community Welfare', desc: 'Serving communities through welfare initiatives.' },
-              { icon: <GraduationCap size={22}/>, title: 'Youth Empowerment', desc: 'Building responsible citizens and future leaders.' },
-              { icon: <Flag size={22}/>, title: 'Patriotism', desc: 'Standing with Pakistan and its institutions.' },
-            ].map(p => (
-              <div key={p.title} className="pillar sr">
-                <div className="pillar__icon">{p.icon}</div>
-                <div>
-                  <p className="pillar__title">{p.title}</p>
-                  <p className="pillar__desc">{p.desc}</p>
-                </div>
-              </div>
+              { icon: UserPlus, no: '01', title: 'Choose your path', text: 'Select the membership type that matches your role and commitment.' },
+              { icon: BadgeCheck, no: '02', title: 'Verify details', text: 'Submit the required identity and contact information securely.' },
+              { icon: CreditCard, no: '03', title: 'Receive your card', text: 'Approved members receive a clear, official membership identity.' },
+              { icon: CheckCircle2, no: '04', title: 'Begin serving', text: 'Take part in programs, campaigns and community initiatives.' },
+            ].map(({ icon: Icon, no, title, text }) => (
+              <StaggerItem key={title}><article><span>{no}</span><Icon size={25} /><h3>{title}</h3><p>{text}</p></article></StaggerItem>
             ))}
-          </div>
+          </Stagger>
+          <Reveal className="dpo-member-journey__action"><Link className="dpo-button dpo-button--gold" to="/apply/membership">Start membership application <ArrowRight size={17} /></Link></Reveal>
         </div>
       </section>
 
-      {/* ══ ABOUT ══ */}
-      <section className="section section--white" id="about">
-        <div className="container">
-          <div className="about__grid">
-            <div className="about__image-wrap sr sr--left">
-              <img src={aboutImg} alt="Community gathering Pakistan"/>
-              <div className="about__image-badge">
-                <strong>Est. 2015</strong>
-                <span>Serving Pakistan</span>
-              </div>
-            </div>
+      <CtaBand
+        title="Build the future through service."
+        text="Explore DPO membership, leadership roles and national programs, then choose where your contribution can matter most."
+        primaryHref="/membership"
+        primaryLabel="Join the organization"
+        secondaryHref="/contact"
+        secondaryLabel="Talk to our team"
+      />
+    </PublicLayout>
+  )
+}
 
-            <div className="about__content sr sr--right">
-              <span className="section-label">About Us</span>
-              <h2 className="section-title">A Movement for a<br/>Stronger Pakistan</h2>
-              <p className="section-body">
-                Defenders of Pakistan Organization (DPO) is a national, non-profit civic
-                organization built on patriotism and service. We work at the grassroots level
-                to empower communities, support youth, and foster national unity across all
-                four provinces of Pakistan.
-              </p>
-              <div className="about__points">
-                {[
-                  { icon: <Shield size={18}/>, title: 'Registered Non-Profit Organization', sub: 'Fully registered and transparent with all stakeholders.' },
-                  { icon: <Users size={18}/>, title: 'Nationwide Presence', sub: 'Active chapters across all four provinces and AJK.' },
-                  { icon: <Star size={18}/>, title: 'Merit-Based Leadership', sub: 'Designations awarded through a fair application process.' },
-                ].map(pt => (
-                  <div key={pt.title} className="about__point">
-                    <div className="about__point-icon">{pt.icon}</div>
-                    <div className="about__point-text">
-                      <strong>{pt.title}</strong>
-                      <span>{pt.sub}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div>
-                <button className="btn btn-primary">Read Our Story <ArrowRight size={16}/></button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+function CounterStat({ value, label, icon: Icon }: { value: string; label: string; icon: typeof Users }) {
+  const root = useRef<HTMLDivElement>(null)
+  const inView = useInView(root, { once: true, amount: 0.55 })
+  const numeric = Number(value.replace(/\D/g, ''))
+  const suffix = value.replace(/[\d,]/g, '')
+  const [count, setCount] = useState(0)
 
-      {/* ══ STATS ══ */}
-      <div className="stats-bar">
-        <div className="container">
-          <div className="stats-bar__grid">
-            <StatBox icon={<Users size={40}/>}         num={10000}  suffix="+"  label="Active Members" />
-            <StatBox icon={<CheckCircle size={40}/>}   num={250}    suffix="+"  label="Projects Completed" />
-            <StatBox icon={<HeartHandshake size={40}/>} num={500}   suffix="+"  label="Volunteers" />
-            <StatBox icon={<MapPin size={40}/>}         num={4}     suffix="+"  label="Provinces Covered" />
-          </div>
-        </div>
-      </div>
+  useEffect(() => {
+    if (!inView) return
+    const start = performance.now()
+    const duration = 1300
+    let frame = 0
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1)
+      setCount(Math.round(numeric * (1 - Math.pow(1 - progress, 3))))
+      if (progress < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [inView, numeric])
 
-      {/* ══ MEMBERSHIP ══ */}
-      <section className="section membership" id="membership">
-        <div className="container">
-          <div className="membership__grid">
-            <div className="membership__image sr sr--left">
-              <img src={joinImg} alt="Crowd holding Pakistan flag"/>
-            </div>
-            <div className="membership__content sr sr--right">
-              <span className="section-label" style={{ color: 'var(--gold-light)' }}>Membership</span>
-              <h2 className="section-title section-title--white">
-                Join Our Mission.<br/>Become a Member.
-              </h2>
-              <p style={{ color: 'rgba(255,255,255,.62)', lineHeight: 1.8 }}>
-                Be part of a patriotic movement for positive change. Membership is free and
-                open to all patriotic Pakistanis who wish to serve their nation with dedication
-                and commitment.
-              </p>
-              <div className="membership__benefits">
-                {[
-                  { icon: <FileText size={17}/>, text: 'Official Membership Card' },
-                  { icon: <Star size={17}/>, text: 'Priority Event Invitations' },
-                  { icon: <BookOpen size={17}/>, text: 'Training & Workshops' },
-                  { icon: <Shield size={17}/>, text: 'Free Designation' },
-                  { icon: <Users size={17}/>, text: 'Volunteer Opportunities' },
-                  { icon: <CalendarDays size={17}/>, text: 'Exclusive Events Access' },
-                ].map(b => (
-                  <div key={b.text} className="membership__benefit">
-                    <span className="membership__benefit-icon">{b.icon}</span>
-                    <span className="membership__benefit-text">{b.text}</span>
-                  </div>
-                ))}
-              </div>
-              <div>
-                <button className="btn btn-gold" style={{ fontSize: '.95rem', padding: '.95rem 2.5rem' }}>
-                  <UserPlus size={18}/> Apply for Membership
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ QUICK ACCESS ══ */}
-      <section className="section quick-access" id="portal">
-        <div className="container">
-          <div className="sr" style={{ marginBottom: '3rem' }}>
-            <span className="section-label">Member Portal</span>
-            <h2 className="section-title">Quick Access</h2>
-            <p className="section-body" style={{ marginTop: '.75rem' }}>
-              Access all DPO services and resources directly from here.
-            </p>
-          </div>
-          <div className="quick-access__grid">
-            {quickTiles.map((t, i) => (
-              <div key={t.label} className={`quick-tile sr sr--d${(i % 3) + 1}`}>
-                <div className="quick-tile__icon-wrap">{t.icon}</div>
-                <div className="quick-tile__body">
-                  <p className="quick-tile__label">{t.label}</p>
-                  <p className="quick-tile__desc">{t.desc}</p>
-                </div>
-                <ChevronRight className="quick-tile__arrow" size={18}/>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══ MERCHANDISE ══ */}
-      <section className="section merch" id="store">
-        <div className="container">
-          <div className="merch__grid">
-            <div className="merch__image sr sr--left">
-              <img src={merchImg} alt="DPO Official Merchandise"/>
-            </div>
-            <div className="merch__content sr sr--right">
-              <span className="section-label">Official Store</span>
-              <h2 className="section-title">Wear Your Pride.<br/>Represent Pakistan.</h2>
-              <p className="section-body">
-                Get your hands on premium DPO merchandise — polo shirts, caps, and more —
-                all featuring the official emblem. Show the world you're a Defender of Pakistan.
-              </p>
-              <div className="merch__tags">
-                {['Premium Quality', 'Official Logo', 'Nationwide Delivery', 'Support a Cause'].map(t => (
-                  <span key={t} className="merch__tag"><CheckCircle size={14}/> {t}</span>
-                ))}
-              </div>
-              <div>
-                <button className="btn btn-primary">Shop Now <ArrowRight size={16}/></button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ QUOTE BAND ══ */}
-      <section className="quote-band">
-        <div className="container">
-          <div className="sr">
-            <p className="quote-band__text">
-              "Together we can build a stronger, united and progressive Pakistan —
-              one act of service at a time."
-            </p>
-            <p className="quote-band__author">— Defenders of Pakistan Organization</p>
-          </div>
-        </div>
-      </section>
-
-      <Footer/>
-    </div>
-  );
+  return <div ref={root} className="dpo-impact-stat"><Icon size={28} /><strong>{count}{suffix}</strong><span>{label}</span></div>
 }

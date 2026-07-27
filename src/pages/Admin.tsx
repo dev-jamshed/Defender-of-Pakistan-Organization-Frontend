@@ -47,24 +47,26 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 const AUTH_STORAGE_KEY = 'dpo-admin-session'
 
 const navItems = [
-  { name: 'Dashboard', icon: LayoutDashboard, active: true },
-  { name: 'Members Management', icon: UsersRound },
-  { name: 'Membership Applications', icon: FileText },
-  { name: 'Designation Applications', icon: ShieldCheck },
-  { name: 'Active Designations', icon: BadgeCheck },
-  { name: 'Designation Renewals', icon: CalendarDays },
-  { name: 'Complaint Management', icon: CircleHelp },
-  { name: 'Payments & Finance', icon: Banknote },
-  { name: 'Gallery Management', icon: GalleryHorizontalEnd },
-  { name: 'Website CMS', icon: FileText },
-  { name: 'Card Templates', icon: CreditCard },
-  { name: 'Notifications', icon: Bell },
-  { name: 'Admin Users', icon: UsersRound },
-  { name: 'Roles & Permissions', icon: ShieldCheck },
-  { name: 'Reports', icon: BadgeCheck },
-  { name: 'Settings', icon: Settings },
-  { name: 'Audit Logs', icon: FileText },
+  { name: 'Dashboard', icon: LayoutDashboard, section: 'Overview' },
+  { name: 'Members Management', icon: UsersRound, section: 'Membership' },
+  { name: 'Membership Applications', icon: FileText, section: 'Membership' },
+  { name: 'Designation Applications', icon: ShieldCheck, section: 'Designations' },
+  { name: 'Active Designations', icon: BadgeCheck, section: 'Designations' },
+  { name: 'Designation Renewals', icon: CalendarDays, section: 'Designations' },
+  { name: 'Complaint Management', icon: CircleHelp, section: 'Operations' },
+  { name: 'Payments & Finance', icon: Banknote, section: 'Operations' },
+  { name: 'Gallery Management', icon: GalleryHorizontalEnd, section: 'Operations' },
+  { name: 'Website CMS', icon: FileText, section: 'Operations' },
+  { name: 'Card Templates', icon: CreditCard, section: 'Operations' },
+  { name: 'Notifications', icon: Bell, section: 'Administration' },
+  { name: 'Admin Users', icon: UsersRound, section: 'Administration' },
+  { name: 'Roles & Permissions', icon: ShieldCheck, section: 'Administration' },
+  { name: 'Reports', icon: BadgeCheck, section: 'Administration' },
+  { name: 'Settings', icon: Settings, section: 'Administration' },
+  { name: 'Audit Logs', icon: FileText, section: 'Administration' },
 ]
+
+const navSections = Array.from(new Set(navItems.map((item) => item.section)))
 
 type DpoRecord = {
   id: string
@@ -370,28 +372,29 @@ function Sidebar({ activeNav, setActiveNav, collapsed }: { activeNav: string; se
           <img src="/dpo-assets/logo-transparent.png" alt="DPO logo" />
         </div>
         {!collapsed && <div className="logo-text">
-          <strong>Defenders of Pakistan Organization</strong>
-          <small>Admin Panel</small>
+          <strong>DPO Administration</strong>
+          <small>Defenders of Pakistan</small>
         </div>}
       </div>
 
       <div className="sidebar-scroll">
-        <ul className="nav-list">
-          {navItems.map(({ name, icon: Icon }) => (
-            <li key={name}>
-              <button className={activeNav === name ? 'active' : ''} type="button" onClick={() => setActiveNav(name)}>
-                <Icon className="nav-icon" />
-                {!collapsed && <span>{name}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <nav className="nav-list" aria-label="Admin modules">
+          {navSections.map((section) => <section className="nav-group" key={section}>
+            {!collapsed && <span className="nav-group-label">{section}</span>}
+            <ul>{navItems.filter((item) => item.section === section).map(({ name, icon: Icon }) => (
+              <li key={name}>
+                <button className={activeNav === name ? 'active' : ''} type="button" title={collapsed ? name : undefined} aria-current={activeNav === name ? 'page' : undefined} onClick={() => setActiveNav(name)}>
+                  <span className="nav-icon-wrap"><Icon className="nav-icon" /></span>
+                  {!collapsed && <span>{name}</span>}
+                </button>
+              </li>
+            ))}</ul>
+          </section>)}
+        </nav>
 
         {!collapsed && <div className="sidebar-footer">
-          <a href="#help">
-            <CircleHelp size={22} />
-            <p>Help & Support</p>
-          </a>
+          <div className="sidebar-system"><i /><span><b>System connected</b><small>Administration workspace</small></span></div>
+          <a href="#help"><CircleHelp size={18} /><p>Help & Support</p></a>
         </div>}
       </div>
     </aside>
@@ -2608,11 +2611,7 @@ function DesignationApplicationsScreen({ apiState, searchQuery }: { apiState: Ap
     const nextStatus = action === 'approve' ? 'approved' : 'rejected'
     try {
       if (action === 'approve') {
-        try {
-          await apiState.runAction('designation-applications', application.id, 'approve')
-        } catch {
-          await apiState.updateRecord('designation-applications', application.id, { status: 'approved' })
-        }
+        await apiState.runAction('designation-applications', application.id, 'approve')
         syncSelectedApplication(application, { status: nextStatus })
         setActionMessage(`${toText(application.applicant ?? application.name) || 'Application'} approved.`)
         return
@@ -2668,6 +2667,7 @@ function DesignationApplicationsScreen({ apiState, searchQuery }: { apiState: Ap
                 const docs = documentSummary(application)
                 const isApproved = normalizeStatus(application.status) === 'approved'
                 const isRejected = normalizeStatus(application.status) === 'rejected'
+                const canApprove = canApproveDesignationApplication(application)
                 return (
                   <tr className={activeApplication?.id === application.id ? 'selected-row' : ''} key={application.id} onClick={() => setSelectedApplication(application)}>
                     <td>{toText(application.applicationNumber ?? application.id)}</td>
@@ -2682,7 +2682,7 @@ function DesignationApplicationsScreen({ apiState, searchQuery }: { apiState: Ap
                     <td>{formatDate(application.createdAt)}</td>
                     <td>
                       <div className="member-row-actions">
-                        {!isApproved && <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); void handleDesignationAction(application, 'approve') }}>Approve</button>}
+                        {!isApproved && <button className="generate-card-row" type="button" disabled={!canApprove} title={canApprove ? 'Approve application' : 'Verify payment and documents first'} onClick={(event) => { event.stopPropagation(); void handleDesignationAction(application, 'approve') }}>Approve</button>}
                         {!isRejected && <button className="reject-row" type="button" onClick={(event) => { event.stopPropagation(); void handleDesignationAction(application, 'reject') }}>Reject</button>}
                         <button className="icon-table-btn view-btn" type="button" aria-label="Review designation application" onClick={(event) => { event.stopPropagation(); openDesignationReview(application) }}><Eye size={16} /></button>
                         <div className="row-menu-wrap">
@@ -2691,7 +2691,7 @@ function DesignationApplicationsScreen({ apiState, searchQuery }: { apiState: Ap
                           </button>
                           {openMenuId === application.id && (
                             <div className="row-action-menu" onClick={(event) => event.stopPropagation()}>
-                              {!isApproved && <button type="button" onClick={() => void handleDesignationAction(application, 'approve')}>Approve</button>}
+                              {!isApproved && <button type="button" disabled={!canApprove} onClick={() => void handleDesignationAction(application, 'approve')}>Approve</button>}
                               {!isRejected && <button type="button" onClick={() => void handleDesignationAction(application, 'reject')}>Reject</button>}
                               <button type="button" onClick={() => openDesignationReview(application)}>Review</button>
                             </div>
@@ -2745,14 +2745,7 @@ function DesignationApplicationsScreen({ apiState, searchQuery }: { apiState: Ap
             ]} />
             <div className="designation-docs-panel">
               <h3>Required Documents</h3>
-              <div>
-                {['CNIC Front', 'CNIC Back', 'Profile Photo'].map((label, index) => (
-                  <figure key={label}>
-                    <img src={`/dpo-assets/front-${(index % 4) + 1}.png`} alt={label} />
-                    <figcaption>{label}<Tag tone="success">Verified</Tag></figcaption>
-                  </figure>
-                ))}
-              </div>
+              <ApplicationDocumentReview key={activeApplication.id} resource="designation-applications" record={activeApplication} apiState={apiState} compact onUpdated={(patch) => syncSelectedApplication(activeApplication, patch)} />
             </div>
           </div>
           <footer className="designation-decision-bar">
@@ -2761,7 +2754,7 @@ function DesignationApplicationsScreen({ apiState, searchQuery }: { apiState: Ap
               <span>Review application details and take action.</span>
             </div>
             <div>
-              {normalizeStatus(activeApplication.status) !== 'approved' && <button className="primary-action" type="button" onClick={() => void handleDesignationAction(activeApplication, 'approve')}>Approve Application</button>}
+              {normalizeStatus(activeApplication.status) !== 'approved' && <button className="primary-action" type="button" disabled={!canApproveDesignationApplication(activeApplication)} title={canApproveDesignationApplication(activeApplication) ? 'Approve application' : 'Verify payment and documents first'} onClick={() => void handleDesignationAction(activeApplication, 'approve')}>Approve Application</button>}
               {normalizeStatus(activeApplication.status) !== 'rejected' && <button className="reject-row" type="button" onClick={() => void handleDesignationAction(activeApplication, 'reject')}>Reject Application</button>}
             </div>
           </footer>
@@ -3910,6 +3903,11 @@ function formatDate(value: unknown) {
 
 function documentSummary(record: DpoRecord): { label: string; tone: 'success' | 'warning' | 'danger' | 'info' } {
   const documents = Array.isArray(record.documents) ? record.documents : []
+  const reviewStatuses = documents
+    .filter((document) => document && typeof document === 'object' && !Array.isArray(document))
+    .map((document) => normalizeStatus((document as Record<string, unknown>).status))
+  if (reviewStatuses.length && reviewStatuses.every((status) => status === 'verified')) return { label: 'Verified', tone: 'success' }
+  if (reviewStatuses.includes('rejected')) return { label: 'Rejected file', tone: 'danger' }
   if (documents.length >= 3) return { label: `${documents.length} Files`, tone: 'success' }
   if (documents.length > 0) return { label: `Missing ${3 - documents.length}`, tone: 'warning' }
   return { label: 'No Files', tone: 'danger' }
@@ -4085,6 +4083,7 @@ function RecordDrawer({ title, resource, record, apiState, startEditing = false,
             </button>
           ))}
         </div>
+        {resource.includes('applications') && <ApplicationDocumentReview key={record.id} resource={resource} record={record} apiState={apiState} />}
         {editing ? (
           <div className="drawer-form">
             {Object.entries(draft).map(([key, value]) => (
@@ -4115,6 +4114,109 @@ function RecordDrawer({ title, resource, record, apiState, startEditing = false,
       </aside>
     </div>
   )
+}
+
+type ApplicationDocument = {
+  kind: string
+  label: string
+  name: string
+  url: string
+  mimeType: string
+  size: number
+  status: string
+}
+
+function ApplicationDocumentReview({ resource, record, apiState, compact = false, onUpdated }: { resource: string; record: DpoRecord; apiState: ApiState; compact?: boolean; onUpdated?: (patch: Record<string, unknown>) => void }) {
+  const [documents, setDocuments] = useState<ApplicationDocument[]>(() => applicationDocuments(record))
+  const [savingKind, setSavingKind] = useState<string | null>(null)
+  const [message, setMessage] = useState('')
+
+  if (!documents.length) {
+    return <div className={`application-document-review empty ${compact ? 'compact' : ''}`}><FileText size={18} /><span>No uploaded documents are attached to this application.</span></div>
+  }
+
+  const updateDocument = async (kind: string, status: 'verified' | 'rejected') => {
+    setSavingKind(kind)
+    setMessage('')
+    const nextDocuments = documents.map((document) => document.kind === kind ? { ...document, status } : document)
+    const documentStatus = nextDocuments.some((document) => document.status === 'rejected')
+      ? 'rejected'
+      : nextDocuments.every((document) => document.status === 'verified')
+        ? 'verified'
+        : 'pending'
+    try {
+      const patch = {
+        documents: nextDocuments,
+        documentStatus,
+        documentsVerified: documentStatus === 'verified',
+      }
+      await apiState.updateRecord(resource, record.id, patch)
+      setDocuments(nextDocuments)
+      onUpdated?.(patch)
+      setMessage(`${nextDocuments.find((document) => document.kind === kind)?.label || 'Document'} marked ${status}.`)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Document status could not be updated.')
+    } finally {
+      setSavingKind(null)
+    }
+  }
+
+  return (
+    <section className={`application-document-review ${compact ? 'compact' : ''}`}>
+      {!compact && <div className="application-document-review-head"><div><span>Identity review</span><h3>Uploaded documents</h3></div><Tag tone={documentSummary({ ...record, documents }).tone}>{documentSummary({ ...record, documents }).label}</Tag></div>}
+      <div className="application-document-grid">
+        {documents.map((document) => (
+          <article key={document.kind}>
+            <a href={document.url} target="_blank" rel="noreferrer" aria-label={`Open ${document.label}`}>
+              {document.mimeType.startsWith('image/')
+                ? <img src={document.url} alt={document.label} />
+                : <span className="application-pdf-preview"><FileText size={28} /> PDF document</span>}
+            </a>
+            <div className="application-document-meta">
+              <div><b>{document.label}</b><small>{document.name} | {formatFileSize(document.size)}</small></div>
+              <Status>{titleStatus(document.status || 'pending')}</Status>
+            </div>
+            <div className="application-document-actions">
+              <button type="button" disabled={savingKind === document.kind || document.status === 'verified'} onClick={() => void updateDocument(document.kind, 'verified')}><CircleCheck size={14} /> Verify</button>
+              <button type="button" disabled={savingKind === document.kind || document.status === 'rejected'} onClick={() => void updateDocument(document.kind, 'rejected')}><CircleX size={14} /> Reject</button>
+            </div>
+          </article>
+        ))}
+      </div>
+      {message && <p className="application-document-message" role="status">{message}</p>}
+    </section>
+  )
+}
+
+function applicationDocuments(record: DpoRecord): ApplicationDocument[] {
+  if (!Array.isArray(record.documents)) return []
+  return record.documents.flatMap((document, index) => {
+    if (!document || typeof document !== 'object' || Array.isArray(document)) return []
+    const item = document as Record<string, unknown>
+    const url = toText(item.url)
+    if (!url) return []
+    return [{
+      kind: toText(item.kind) || `document-${index + 1}`,
+      label: toText(item.label) || `Document ${index + 1}`,
+      name: toText(item.name) || 'Uploaded file',
+      url,
+      mimeType: toText(item.mimeType) || 'application/octet-stream',
+      size: Number(item.size) || 0,
+      status: toText(item.status) || 'pending',
+    }]
+  })
+}
+
+function canApproveDesignationApplication(record: DpoRecord) {
+  const paymentReady = ['paid', 'verified', 'approved'].includes(normalizeStatus(record.paymentStatus))
+  const documents = applicationDocuments(record)
+  const documentsReady = !documents.length || documents.every((document) => normalizeStatus(document.status) === 'verified')
+  return paymentReady && documentsReady
+}
+
+function formatFileSize(size: number) {
+  if (!size) return 'Unknown size'
+  return size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(1)} MB` : `${Math.round(size / 1024)} KB`
 }
 
 function CreateRecordModal({ resource, apiState, onClose }: { resource: string; apiState: ApiState; onClose: () => void }) {
