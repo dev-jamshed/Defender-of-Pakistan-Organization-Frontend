@@ -15,6 +15,7 @@ import DesignationApplication from './pages/DesignationApplication';
 import ApplicationStatus from './pages/ApplicationStatus';
 import MemberServices from './pages/MemberServices';
 
+
 const pageTitles: Record<string, string> = {
   '/': 'Defenders of Pakistan Organization',
   '/about': 'About DPO',
