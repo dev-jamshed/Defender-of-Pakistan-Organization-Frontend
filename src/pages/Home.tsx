@@ -1,6 +1,5 @@
 import { motion, useInView, useReducedMotion } from 'framer-motion'
 import {
-  ArrowDown,
   ArrowRight,
   BadgeCheck,
   BookOpen,
@@ -30,6 +29,13 @@ const pillars = [
   { icon: Flag, title: 'National unity', text: 'One identity across every community.' },
 ]
 
+const heroValues = [
+  { icon: Shield, title: 'Patriotism', text: 'Love for country' },
+  { icon: Users, title: 'Unity', text: 'Strength in togetherness' },
+  { icon: HandHeart, title: 'Service', text: 'Welfare for all' },
+  { icon: GraduationCap, title: 'Empowerment', text: 'Youth are the future' },
+]
+
 export default function Home() {
   const reduceMotion = useReducedMotion()
 
@@ -48,16 +54,14 @@ export default function Home() {
         <div className="dpo-home-hero__grid-lines" aria-hidden="true" />
         <div className="dpo-container dpo-home-hero__grid">
           <div className="dpo-home-hero__copy">
-            <Reveal><div className="dpo-hero-kicker"><span /> {hero.eyebrow}</div></Reveal>
-            <TextReveal>{hero.titleLines.join(' ')}</TextReveal>
+            <Reveal><div className="dpo-hero-kicker"><span /><b>{hero.eyebrow}</b><span /></div></Reveal>
+            <h1 aria-label={hero.titleLines.join(' ')}>
+              {hero.titleLines.map((line) => <TextReveal as="span" className="dpo-hero-title-line" key={line}>{line}</TextReveal>)}
+            </h1>
             <Reveal delay={0.42}><p>{hero.text}</p></Reveal>
             <Reveal delay={0.56} className="dpo-actions">
               <Link className="dpo-button dpo-button--gold" to="/apply/membership"><UserPlus size={17} /> {hero.primaryCta}</Link>
-              <Link className="dpo-button dpo-button--outline-light" to="/about">{hero.secondaryCta}<ArrowRight size={17} /></Link>
-            </Reveal>
-            <Reveal delay={0.72} className="dpo-hero-trust">
-              <div className="dpo-hero-trust__icons"><Shield size={18} /><Users size={18} /><HandHeart size={18} /></div>
-              <span>Patriotism</span><i /> <span>Unity</span><i /> <span>Service</span>
+              <Link className="dpo-button dpo-button--outline-light" to="/contact"><HandHeart size={17} /> {hero.secondaryCta}</Link>
             </Reveal>
           </div>
 
@@ -67,14 +71,19 @@ export default function Home() {
             animate={{ opacity: 1, scale: 1, rotate: 0 }}
             transition={{ delay: 0.35, duration: 1, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="dpo-hero-emblem__ring dpo-hero-emblem__ring--outer" />
-            <div className="dpo-hero-emblem__ring dpo-hero-emblem__ring--inner" />
             <img src={brand.assets.logo} alt="DPO official emblem" />
-            <span className="dpo-hero-emblem__orbit">DPO</span>
-            <div><strong>Serve with pride</strong><small>Together for Pakistan</small></div>
+            <span>Pakistan Zindabad</span>
           </motion.div>
+
+          <Reveal delay={0.62} direction="right" className="dpo-hero-values">
+            {heroValues.map(({ icon: Icon, title, text }) => (
+              <div className="dpo-hero-values__item" key={title}>
+                <span><Icon size={25} /></span>
+                <div><strong>{title}</strong><small>{text}</small></div>
+              </div>
+            ))}
+          </Reveal>
         </div>
-        <a className="dpo-scroll-cue" href="#pillars"><span>Explore</span><ArrowDown size={17} /></a>
       </section>
 
       <section className="dpo-pillars" id="pillars">

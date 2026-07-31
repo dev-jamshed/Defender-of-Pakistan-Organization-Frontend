@@ -78,9 +78,9 @@ export const hero = {
   eyebrow: organization.name,
   titleLines: ['One Flag', 'One Nation', 'One Pakistan'],
   text:
-    'Building a disciplined, united and service-led civic movement through education, welfare, youth leadership and responsible citizenship.',
+    'We are a non-profit organization committed to patriotism, national unity, youth empowerment, community welfare, education and human service for a strong, peaceful and progressive Pakistan.',
   primaryCta: 'Become a Member',
-  secondaryCta: 'Explore Mission',
+  secondaryCta: 'Donate Now',
 }
 
 export const about = {
