@@ -5228,6 +5228,34 @@ tbody tr {
   resize: vertical;
 }
 
+.cms-upload-field input[type="file"] {
+  height: auto;
+  padding: 10px 12px;
+}
+
+.cms-upload-field small {
+  color: var(--text-low-em);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.cms-upload-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--outline-base-em);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--surface-2);
+}
+
+.cms-upload-preview img {
+  width: 72px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
 .cms-text-editor {
   min-height: 240px !important;
 }

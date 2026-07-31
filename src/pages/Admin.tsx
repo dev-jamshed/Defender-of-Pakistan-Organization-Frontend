@@ -3683,16 +3683,17 @@ function GalleryDropzone({ onUpload }: { onUpload: (files: FileList | null) => v
 }
 
 const cmsPageGroups = [
-  { label: 'Home', slugs: ['home'], prefixes: ['home-'] },
-  { label: 'About', slugs: ['about'], prefixes: ['about-'] },
-  { label: 'Action Plan', slugs: ['action-plan'], prefixes: ['action-plan-'] },
-  { label: 'Membership', slugs: ['membership', 'membership-application'], prefixes: ['membership-'] },
-  { label: 'Designations', slugs: ['designations', 'designation-application'], prefixes: ['designations-', 'designation-'] },
-  { label: 'Cards', slugs: ['card-design'], prefixes: ['card-design-'] },
-  { label: 'Gallery', slugs: ['gallery'], prefixes: ['gallery-'] },
-  { label: 'Legal', slugs: ['legal', 'privacy-policy', 'terms-and-conditions', 'refund-policy', 'donation-policy', 'data-cnic-privacy-policy'], prefixes: ['legal-'] },
-  { label: 'Contact', slugs: ['contact'], prefixes: ['contact-'] },
-  { label: 'Member Services', slugs: ['member-services', 'application-status'], prefixes: ['member-services-', 'application-status-'] },
+  { label: 'Home', sections: ['home', 'home-pillars', 'home-who-we-are', 'home-impact', 'home-values', 'home-membership-journey', 'home-cta'] },
+  { label: 'About', sections: ['about'] },
+  { label: 'Action Plan', sections: ['action-plan'] },
+  { label: 'Membership', sections: ['membership'] },
+  { label: 'Designations', sections: ['designations'] },
+  { label: 'Cards', sections: ['card-design'] },
+  { label: 'Gallery', sections: ['gallery'] },
+  { label: 'Legal', sections: ['legal', 'privacy-policy', 'terms-and-conditions', 'refund-policy', 'donation-policy', 'data-cnic-privacy-policy'] },
+  { label: 'Contact', sections: ['contact'] },
+  { label: 'Member Services', sections: ['member-services'] },
+  { label: 'Apply Pages', sections: ['membership-application', 'designation-application', 'application-status'] },
 ]
 
 function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
@@ -3706,11 +3707,11 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
   const selectedGroup = cmsPageGroups.find((group) => group.label === selectedPage) ?? cmsPageGroups[0]
   const visiblePages = pages.filter((page) => {
     const slug = toText(page.slug)
-    const matchesPage = selectedGroup.slugs.includes(slug) || selectedGroup.prefixes.some((prefix) => slug.startsWith(prefix))
+    const matchesPage = selectedGroup.sections.includes(slug)
     const matchesSearch = searchQuery ? searchableText(page).includes(searchQuery.toLowerCase()) : true
     const matchesStatus = status === 'All' || normalizeStatus(page.status) === normalizeStatus(status)
     return matchesPage && matchesSearch && matchesStatus
-  })
+  }).sort((first, second) => selectedGroup.sections.indexOf(toText(first.slug)) - selectedGroup.sections.indexOf(toText(second.slug)))
   const statusOptions = ['All', ...Array.from(new Set(pages.map((page) => titleStatus(page.status)).filter(Boolean)))]
   const drafts = pages.filter((page) => normalizeStatus(page.status) === 'draft').length
   const published = pages.filter((page) => normalizeStatus(page.status) === 'published').length
@@ -3748,7 +3749,7 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
         </div>
 
         <div className="members-toolbar cms-toolbar">
-          <button className="primary-action" type="button" onClick={() => setEditorState({ mode: 'create', record: { id: '', slug: `${selectedGroup.slugs[0]}-section`, type: 'page', status: 'draft' } })}><Plus size={16} /> New Section</button>
+          <button className="primary-action" type="button" onClick={() => setEditorState({ mode: 'create', record: { id: '', slug: `${selectedGroup.sections[0]}-section`, type: 'page', status: 'draft' } })}><Plus size={16} /> New Section</button>
           <label className="filter-field">
             <span>Status</span>
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -3760,13 +3761,12 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
         <div className="production-table-scroll">
           <table className="production-members-table cms-table">
             <thead>
-              <tr>{['Section', 'Slug', 'Image', 'Last Updated', 'Status', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
+              <tr>{['Section', 'Image', 'Last Updated', 'Status', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
             </thead>
             <tbody>
               {visiblePages.map((page) => (
                 <tr key={page.id} onClick={() => setEditorState({ mode: 'edit', record: page })}>
-                  <td><b>{toText(page.titleEnglish) || '-'}</b><small>{toText(asObject(page.content).bodyEnglish ?? page.excerpt)}</small></td>
-                  <td>/{toText(page.slug).replace(/^\/+/, '')}</td>
+                  <td><b>{cmsSectionLabel(page)}</b><small>{toText(page.titleEnglish) || toText(asObject(page.content).bodyEnglish ?? page.excerpt)}</small></td>
                   <td>{toText(page.image ?? asObject(page.content).image) || '-'}</td>
                   <td>{formatDate(page.updatedAt)}</td>
                   <td><Status>{titleStatus(page.status)}</Status></td>
@@ -3791,7 +3791,7 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
               ))}
               {!visiblePages.length && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={5}>
                     <div className="cms-tab-empty">
                       <h2>No sections found</h2>
                       <p>Create a section for {selectedPage} or change the status filter.</p>
@@ -3852,13 +3852,15 @@ function CmsContentEditor({
   onSaved: (message: string) => void
 }) {
   const recordContent = asObject(record?.content)
+  const existingImage = toText(record?.image ?? recordContent.image) || valueList(recordContent.heroSlides)[0] || ''
   const [draft, setDraft] = useState({
     titleEnglish: toText(record?.titleEnglish),
     titleUrdu: toText(record?.titleUrdu),
+    eyebrow: toText(recordContent.eyebrow),
     slug: toText(record?.slug),
     type: toText(record?.type) || 'page',
     status: normalizeStatus(record?.status) || 'draft',
-    image: toText(record?.image ?? recordContent.image),
+    image: existingImage,
     language: toText(record?.language ?? record?.lang) || 'EN',
     seoTitle: toText(record?.seoTitle),
     metaDescription: toText(recordContent.metaDescription ?? recordContent.description ?? record?.metaDescription),
@@ -3867,8 +3869,23 @@ function CmsContentEditor({
     items: valueList(recordContent.items).join('\n'),
   })
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const updateDraft = (key: keyof typeof draft, value: string) => setDraft((current) => ({ ...current, [key]: value }))
+  const uploadImage = async (file: File | null) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      const dataUrl = await readFileAsDataUrl(file)
+      const uploaded = await apiSend<{ url: string }>('/admin/cms/upload', 'POST', { name: file.name, dataUrl }, getStoredSession()?.token)
+      updateDraft('image', uploaded.url)
+      onSaved('Image uploaded.')
+    } catch (error) {
+      onSaved(error instanceof Error ? error.message : 'Image could not be uploaded.')
+    } finally {
+      setUploading(false)
+    }
+  }
   const saveCmsPage = async (nextStatus = draft.status) => {
     setSaving(true)
     try {
@@ -3886,6 +3903,7 @@ function CmsContentEditor({
           ...recordContent,
           bodyEnglish: draft.contentEnglish,
           bodyUrdu: draft.contentUrdu,
+          eyebrow: draft.eyebrow,
           image: draft.image.trim(),
           items: draft.items.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
           metaDescription: draft.metaDescription,
@@ -3922,6 +3940,10 @@ function CmsContentEditor({
             <span>Page Title</span>
             <input value={draft.titleEnglish} onChange={(event) => updateDraft('titleEnglish', event.target.value)} placeholder="About Defenders of Pakistan" />
           </label>
+          <label className="cms-editor-field">
+            <span>Small Heading</span>
+            <input value={draft.eyebrow} onChange={(event) => updateDraft('eyebrow', event.target.value)} placeholder="Our growing impact" />
+          </label>
           <label className="cms-editor-field urdu-field">
             <span>Urdu Title</span>
             <input dir="rtl" lang="ur" value={draft.titleUrdu} onChange={(event) => updateDraft('titleUrdu', event.target.value)} placeholder="پاکستان کے محافظ" />
@@ -3952,9 +3974,10 @@ function CmsContentEditor({
               <option value="archived">Archived</option>
             </select>
           </label>
-          <label className="cms-editor-field wide">
-            <span>Image Path</span>
-            <input value={draft.image} onChange={(event) => updateDraft('image', event.target.value)} placeholder="/dpo-assets/home-hero-v2.jpg" />
+          <label className="cms-editor-field wide cms-upload-field">
+            <span>Upload Image</span>
+            <input type="file" accept="image/*" disabled={uploading} onChange={(event) => void uploadImage(event.target.files?.[0] ?? null)} />
+            {draft.image ? <div className="cms-upload-preview"><img src={assetPath(draft.image)} alt="" /><small>{draft.image.split('/').pop()}</small></div> : <small>No image selected</small>}
           </label>
           <label className="cms-editor-field wide">
             <span>List Items</span>
@@ -4583,6 +4606,32 @@ function formatSettingValue(value: unknown) {
   if (Array.isArray(value)) return value.join(', ')
   if (typeof value === 'object' && value !== null) return JSON.stringify(value)
   return toText(value)
+}
+
+function cmsSectionLabel(page: DpoRecord) {
+  const labels: Record<string, string> = {
+    home: 'Hero',
+    'home-pillars': 'Pillars',
+    'home-who-we-are': 'Who We Are',
+    'home-impact': 'Impact',
+    'home-values': 'Values',
+    'home-membership-journey': 'Membership Journey',
+    'home-cta': 'Final CTA',
+    about: 'About Page',
+    'action-plan': 'Action Plan Page',
+    membership: 'Membership Page',
+    designations: 'Designations Page',
+    'card-design': 'Card Page',
+    gallery: 'Gallery Page',
+    legal: 'Legal Page',
+    contact: 'Contact Page',
+    'member-services': 'Member Services Page',
+    'membership-application': 'Membership Application',
+    'designation-application': 'Designation Application',
+    'application-status': 'Application Status',
+  }
+  const slug = toText(page.slug)
+  return labels[slug] ?? titleStatus(slug.replace(/^(home|membership-page|designations|member-services)-/, ''))
 }
 
 function getAlbumImages(album: DpoRecord) {

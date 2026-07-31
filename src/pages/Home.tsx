@@ -42,7 +42,7 @@ export default function Home() {
   const reduceMotion = useReducedMotion()
   const site = usePublicSite()
   const homePage = useCmsPage('home')
-  const aboutPage = useCmsPage('about')
+  const whoWeArePage = useCmsPage('home-who-we-are')
   const actionPage = useCmsPage('action-plan')
   const pillarsPage = useCmsPage('home-pillars')
   const impactPage = useCmsPage('home-impact')
@@ -56,13 +56,18 @@ export default function Home() {
   const pillarItems = cmsPairs(pillarsPage, pillars.map(({ title, text }) => ({ title, text })))
   const valueItems = cmsPairs(valuesPage, coreValues.map(({ title, text }) => ({ title, text })))
   const actionItems = cmsPairs(actionPage, actionPlan.map(({ title, text }) => ({ title, text })))
+  const impactItems = cmsPairs(impactPage, quickStats.map(({ label, value }) => ({ title: label, text: value })))
   const journeyItems = cmsPairs(membershipPage, [
     { title: 'Choose your path', text: 'Select the membership type that matches your role and commitment.' },
     { title: 'Verify details', text: 'Submit the required identity and contact information securely.' },
     { title: 'Receive your card', text: 'Approved members receive a clear, official membership identity.' },
     { title: 'Begin serving', text: 'Take part in programs, campaigns and community initiatives.' },
   ])
-  const statRows = quickStats.map((item) => ({ ...item, value: String(site.stats[item.label.replace(/\s+/g, '').replace(/^./, (char) => char.toLowerCase())] ?? item.value) }))
+  const statRows = impactItems.map((item, index) => ({
+    label: item.title,
+    value: item.text || quickStats[index]?.value || '0',
+    icon: quickStats[index]?.icon ?? Users,
+  }))
 
   return (
     <PublicLayout>
@@ -128,15 +133,15 @@ export default function Home() {
       <section className="dpo-section dpo-section--paper">
         <div className="dpo-container dpo-home-about">
           <Reveal direction="left" className="dpo-home-about__media">
-            <img src={cmsImage(aboutPage, '/dpo-assets/home-mission-v2.jpg')} alt="DPO volunteers distributing books" />
+            <img src={cmsImage(whoWeArePage, '/dpo-assets/home-mission-v2.jpg')} alt="DPO volunteers distributing books" />
             <div className="dpo-home-about__seal"><Sparkles size={19} /><strong>Service-led</strong><span>Across Pakistan</span></div>
             <span className="dpo-home-about__caption">Community. Education. Nation.</span>
           </Reveal>
           <div className="dpo-home-about__content">
-            <SectionHeader eyebrow="Who We Are" title={cmsTitle(aboutPage, about.headline)} text={cmsText(aboutPage, about.body)} />
+            <SectionHeader eyebrow="Who We Are" title={cmsTitle(whoWeArePage, about.headline)} text={cmsText(whoWeArePage, about.body)} />
             <Stagger className="dpo-about-principles">
-              <StaggerItem><article><span>01</span><div><h3>Our mission</h3><p>{cmsValue(aboutPage, 'mission', about.mission)}</p></div></article></StaggerItem>
-              <StaggerItem><article><span>02</span><div><h3>Our vision</h3><p>{cmsValue(aboutPage, 'vision', about.vision)}</p></div></article></StaggerItem>
+              <StaggerItem><article><span>01</span><div><h3>Our mission</h3><p>{cmsValue(whoWeArePage, 'mission', about.mission)}</p></div></article></StaggerItem>
+              <StaggerItem><article><span>02</span><div><h3>Our vision</h3><p>{cmsValue(whoWeArePage, 'vision', about.vision)}</p></div></article></StaggerItem>
             </Stagger>
             <Reveal delay={0.15}><Link className="dpo-text-link" to="/about">Discover our story <ArrowRight size={17} /></Link></Reveal>
           </div>
@@ -146,7 +151,7 @@ export default function Home() {
       <section className="dpo-impact-band">
         <div className="dpo-impact-band__texture" aria-hidden="true" />
         <div className="dpo-container dpo-impact-band__head">
-          <Reveal><span className="dpo-eyebrow">Our growing impact</span><h2>{cmsTitle(impactPage, 'Progress measured through participation.')}</h2></Reveal>
+          <Reveal><span className="dpo-eyebrow">{cmsValue(impactPage, 'eyebrow', 'Our growing impact')}</span><h2>{cmsTitle(impactPage, 'Progress measured through participation.')}</h2></Reveal>
           <Reveal delay={0.12}><p>{cmsText(impactPage, 'Every number represents people choosing awareness, responsibility and public service.')}</p></Reveal>
         </div>
         <div className="dpo-container dpo-impact-band__grid">
