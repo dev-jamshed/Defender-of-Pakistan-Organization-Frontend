@@ -6,9 +6,18 @@ import { postPublic } from '@/lib/publicApi'
 import { Reveal, Stagger, StaggerItem } from '../components/public/Motion'
 import PublicLayout from '../components/public/PublicLayout'
 import { PageIntro } from '../components/public/PublicUi'
-import { contactCards, organization } from '../content/publicContent'
+import { contactCards } from '../content/publicContent'
+import { cmsImage, cmsText, cmsTitle, organizationFromSettings, useCmsPage, usePublicSite } from '../lib/publicCms'
 
 export default function Contact() {
+  const site = usePublicSite()
+  const page = useCmsPage('contact')
+  const org = organizationFromSettings(site.settings)
+  const cards = [
+    { ...contactCards[0], text: org.phone },
+    { ...contactCards[1], text: org.email },
+    { ...contactCards[2], text: org.address },
+  ]
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -37,7 +46,7 @@ export default function Contact() {
 
   return (
     <PublicLayout>
-      <PageIntro eyebrow="Contact DPO" index="08" title="Start a meaningful conversation." text="Reach the organization for membership guidance, designation questions, partnerships, welfare coordination or general information." image="/dpo-assets/home-mission-v2.jpg" />
+      <PageIntro eyebrow="Contact DPO" index="08" title={cmsTitle(page, 'Start a meaningful conversation.')} text={cmsText(page, 'Reach the organization for membership guidance, designation questions, partnerships, welfare coordination or general information.')} image={cmsImage(page, '/dpo-assets/home-mission-v2.jpg')} />
 
       {/* Official Contact Cards Section */}
       <section className="bg-[#eeeae0] py-16 sm:py-24">
@@ -51,7 +60,7 @@ export default function Contact() {
           </Reveal>
 
           <Stagger className="grid gap-6 sm:grid-cols-3 mt-8">
-            {contactCards.map(({ icon: Icon, title, text }) => (
+            {cards.map(({ icon: Icon, title, text }) => (
               <StaggerItem key={title}>
                 <div className="group relative flex h-full flex-col overflow-hidden rounded-[20px] bg-white p-8 shadow-[0_4px_24px_rgba(13,33,23,.03)] ring-1 ring-[#e2e8e4] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_24px_48px_rgba(12,113,72,.1)] hover:ring-[#0c7148]/30">
                   <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#0c7148] to-[#129b64] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -64,11 +73,11 @@ export default function Contact() {
                   </div>
                   <div className="mt-8 border-t border-[#f0f3f1] pt-6">
                     {title.includes('Phone') ? (
-                      <a href={`tel:${organization.phone.replace(/\s/g, '')}`} className="group/link inline-flex items-center gap-2 text-[14px] font-bold text-[#052d1d] transition-colors hover:text-[#0c7148]">
+                      <a href={`tel:${org.phone.replace(/\s/g, '')}`} className="group/link inline-flex items-center gap-2 text-[14px] font-bold text-[#052d1d] transition-colors hover:text-[#0c7148]">
                         Call now <ArrowRight className="size-4 transition-transform group-hover/link:translate-x-1 text-[#0c7148]" />
                       </a>
                     ) : title === 'Email' ? (
-                      <a href={`mailto:${organization.email}`} className="group/link inline-flex items-center gap-2 text-[14px] font-bold text-[#052d1d] transition-colors hover:text-[#0c7148]">
+                      <a href={`mailto:${org.email}`} className="group/link inline-flex items-center gap-2 text-[14px] font-bold text-[#052d1d] transition-colors hover:text-[#0c7148]">
                         Send email <ArrowRight className="size-4 transition-transform group-hover/link:translate-x-1 text-[#0c7148]" />
                       </a>
                     ) : (
@@ -213,19 +222,19 @@ export default function Contact() {
                   <h3 className="mt-3 font-[Outfit] text-2xl font-bold text-[#052d1d]">Karachi, Pakistan</h3>
                 </div>
                 <div className="p-8">
-                  <p className="text-[15px] leading-relaxed text-[#59655f]">{organization.address}</p>
+                  <p className="text-[15px] leading-relaxed text-[#59655f]">{org.address}</p>
                   <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:gap-8">
-                    <a href={`tel:${organization.phone.replace(/\s/g, '')}`} className="group flex items-center gap-3">
+                    <a href={`tel:${org.phone.replace(/\s/g, '')}`} className="group flex items-center gap-3">
                       <div className="grid size-10 place-items-center rounded-full bg-[#eaf4ee] text-[#0b7148] transition-colors group-hover:bg-[#0b7148] group-hover:text-white">
                         <Phone className="size-4" />
                       </div>
-                      <span className="text-[14px] font-semibold text-[#052d1d]">{organization.phone}</span>
+                      <span className="text-[14px] font-semibold text-[#052d1d]">{org.phone}</span>
                     </a>
-                    <a href={`mailto:${organization.email}`} className="group flex items-center gap-3">
+                    <a href={`mailto:${org.email}`} className="group flex items-center gap-3">
                       <div className="grid size-10 place-items-center rounded-full bg-[#eaf4ee] text-[#0b7148] transition-colors group-hover:bg-[#0b7148] group-hover:text-white">
                         <Mail className="size-4" />
                       </div>
-                      <span className="text-[14px] font-semibold text-[#052d1d]">{organization.email}</span>
+                      <span className="text-[14px] font-semibold text-[#052d1d]">{org.email}</span>
                     </a>
                   </div>
                 </div>

@@ -21,7 +21,8 @@ import type React from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
-import { brand, navLinks, organization } from '../../content/publicContent'
+import { brand, navLinks } from '../../content/publicContent'
+import { organizationFromSettings, settingValue, usePublicSite } from '../../lib/publicCms'
 import '../../styles/home.css'
 
 type PublicLayoutProps = {
@@ -67,6 +68,9 @@ const mobileSections = [
 ]
 
 export default function PublicLayout({ children }: PublicLayoutProps) {
+  const site = usePublicSite()
+  const org = organizationFromSettings(site.settings)
+  const logo = settingValue(site.settings, 'brand_logo_path', brand.assets.logo)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const { pathname, search } = useLocation()
@@ -98,11 +102,11 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
         <div className="dpo-topbar">
           <div className="dpo-container dpo-topbar__inner">
             <div className="dpo-topbar__contact">
-              <a href={`tel:${organization.phone.replace(/\s/g, '')}`}><Phone size={13} /> {organization.phone}</a>
-              <a href={`mailto:${organization.email}`}><Mail size={13} /> {organization.email}</a>
+              <a href={`tel:${org.phone.replace(/\s/g, '')}`}><Phone size={13} /> {org.phone}</a>
+              <a href={`mailto:${org.email}`}><Mail size={13} /> {org.email}</a>
             </div>
             <div className="dpo-topbar__right">
-              <span>{organization.motto}</span>
+              <span>{org.motto}</span>
               <div className="dpo-socials" aria-label="Social media">
                 <a href="#" aria-label="Facebook"><Share2 size={13} /></a>
                 <a href="#" aria-label="Instagram"><Camera size={13} /></a>
@@ -115,9 +119,9 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
         <div className="dpo-navbar">
           <div className="dpo-container dpo-navbar__inner">
             <Link to="/" className="dpo-brand">
-              <img src={brand.assets.logo} alt={`${organization.name} logo`} />
+              <img src={logo} alt={`${org.name} logo`} />
               <span>
-                <b>Defenders of Pakistan Organization</b>
+                <b>{org.name}</b>
                 <small>DPO</small>
               </span>
             </Link>
@@ -146,8 +150,8 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             <motion.aside className="dpo-mobile-drawer" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 34, stiffness: 300, mass: .85 }}>
               <div className="dpo-mobile-drawer__head">
                 <Link to="/" className="dpo-brand" onClick={() => setDrawerOpen(false)}>
-                  <img src={brand.assets.logo} alt="" />
-                  <span><b>DPO</b><small>{organization.motto}</small></span>
+                  <img src={logo} alt="" />
+                  <span><b>DPO</b><small>{org.motto}</small></span>
                 </Link>
                 <button type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)}><X size={20} /></button>
               </div>
@@ -165,7 +169,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
               </nav>
               <div className="dpo-mobile-drawer__footer">
                 <Link to="/admin" onClick={() => setDrawerOpen(false)}><LockKeyhole size={16} /> Admin login</Link>
-                <a href={`mailto:${organization.email}`}>{organization.email}</a>
+                <a href={`mailto:${org.email}`}>{org.email}</a>
               </div>
             </motion.aside>
           </motion.div>
@@ -205,6 +209,9 @@ function headerLinkActive(href: string, currentUrl: string) {
 }
 
 function PublicFooter() {
+  const site = usePublicSite()
+  const org = organizationFromSettings(site.settings)
+  const logo = settingValue(site.settings, 'brand_logo_path', brand.assets.logo)
   return (
     <footer className="dpo-footer">
       <div className="dpo-footer__watermark" aria-hidden="true">PAKISTAN</div>
@@ -217,10 +224,10 @@ function PublicFooter() {
       </div>
       <div className="dpo-container dpo-footer__grid">
         <div className="dpo-footer__brand">
-          <img src={brand.assets.logo} alt="" />
+          <img src={logo} alt="" />
           <div>
-            <h3>{organization.name}</h3>
-            <p>{organization.intro}</p>
+            <h3>{org.name}</h3>
+            <p>{org.intro}</p>
             <div className="dpo-socials">
               <a href="#" aria-label="Facebook"><Share2 size={15} /></a>
               <a href="#" aria-label="Instagram"><Camera size={15} /></a>
@@ -238,14 +245,14 @@ function PublicFooter() {
         ]} />
         <div className="dpo-footer__contact">
           <h3>Contact</h3>
-          <a href={`tel:${organization.phone.replace(/\s/g, '')}`}><Phone size={16} />{organization.phone}</a>
-          <a href={`mailto:${organization.email}`}><Mail size={16} />{organization.email}</a>
-          <p>{organization.address}</p>
+          <a href={`tel:${org.phone.replace(/\s/g, '')}`}><Phone size={16} />{org.phone}</a>
+          <a href={`mailto:${org.email}`}><Mail size={16} />{org.email}</a>
+          <p>{org.address}</p>
         </div>
       </div>
       <div className="dpo-footer__bottom">
         <div className="dpo-container">
-          <span>&copy; {new Date().getFullYear()} {organization.name}. All rights reserved.</span>
+          <span>&copy; {new Date().getFullYear()} {org.name}. All rights reserved.</span>
           <div><Link to="/legal/privacy-policy">Privacy</Link><Link to="/legal/terms-and-conditions">Terms</Link><Link to="/admin">Admin</Link></div>
         </div>
       </div>

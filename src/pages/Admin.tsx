@@ -53,6 +53,7 @@ const navItems = [
   { name: 'Designation Applications', icon: ShieldCheck, section: 'Designations' },
   { name: 'Active Designations', icon: BadgeCheck, section: 'Designations' },
   { name: 'Designation Renewals', icon: CalendarDays, section: 'Designations' },
+  { name: 'Designation Master List', icon: GraduationCap, section: 'Designations' },
   { name: 'Complaint Management', icon: CircleHelp, section: 'Operations' },
   { name: 'Payments & Finance', icon: Banknote, section: 'Operations' },
   { name: 'Gallery Management', icon: GalleryHorizontalEnd, section: 'Operations' },
@@ -1202,11 +1203,10 @@ function SubmitComplaintPage() {
       <PageBanner title="Submit Complaint" text="Submit a public complaint through the existing complaint API." />
       <Section title="Complaint Form" eyebrow="Complaints">
         <form className="public-form" onSubmit={submit}>
-          <div className="form-grid"><PublicInput name="name" label="Name" required /><PublicInput name="email" label="Email" type="email" /><PublicInput name="phone" label="Phone" /><PublicInput name="cnic" label="CNIC" /></div>
-          <div className="form-grid"><PublicSelect name="category" label="Category" options={['Verification', 'Card Issue', 'Membership', 'General']} required /><PublicSelect name="priority" label="Priority" options={['low', 'medium', 'high', 'urgent']} required /></div>
+          <div className="form-grid"><PublicInput name="name" label="Name" required /><PublicInput name="phone" label="Phone" required /></div>
+          <PublicSelect name="category" label="Category" options={['Verification', 'Card Issue', 'Membership', 'General']} required />
           <PublicInput name="subject" label="Subject" required />
           <PublicTextarea name="description" label="Description" required />
-          <PublicInput name="attachments" label="Attachments" type="file" />
           {error && <PublicAlert tone="danger" title="Complaint failed" message={error} />}
           <PublicButton type="submit">Submit Complaint</PublicButton>
         </form>
@@ -1802,8 +1802,8 @@ function KpiGrid({ dashboard }: { dashboard: DashboardSummary | null }) {
 function RecentRequirementTables({ apiState, setActiveNav }: { apiState: ApiState; setActiveNav: (value: string) => void }) {
   const groups: [string, string, DpoRecord[], string[]][] = [
     ['Recent Membership Applications', 'Membership Applications', apiState.records['membership-applications'] ?? [], ['applicationNumber', 'name', 'district', 'paymentStatus', 'status']],
-    ['Recent Complaints', 'Complaint Management', apiState.records.complaints ?? [], ['complaintNumber', 'name', 'category', 'priority', 'status']],
-    ['Recent Payments', 'Payments & Finance', apiState.records.payments ?? [], ['orderId', 'user', 'paymentType', 'totalAmount', 'status']],
+    ['Recent Complaints', 'Complaint Management', apiState.records.complaints ?? [], ['complaintNumber', 'name', 'category', 'subject', 'status']],
+    ['Recent Payments', 'Payments & Finance', apiState.records.payments ?? [], ['orderId', 'user', 'paymentType', 'amount', 'status']],
   ]
 
   return (
@@ -2058,11 +2058,11 @@ function ComplaintManagement({ complaintsData }: { complaintsData: DpoRecord[] }
       <div className="complaint-layout">
         <div className="table-scroll">
           <table>
-            <thead><tr>{['Complaint No', 'Subject', 'Category', 'Priority', 'Status'].map((h) => <th key={h}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Complaint No', 'Name', 'Phone', 'Category', 'Subject', 'Status'].map((h) => <th key={h}>{h}</th>)}</tr></thead>
             <tbody>
               {complaintsData.map((row) => (
                 <tr key={row.id}>
-                  <td>{toText(row.complaintNumber)}</td><td>{toText(row.subject)}</td><td>{toText(row.category)}</td><td><Status>{titleStatus(row.priority)}</Status></td><td><Status>{titleStatus(row.status)}</Status></td>
+                  <td>{toText(row.complaintNumber)}</td><td>{toText(row.name)}</td><td>{toText(row.phone)}</td><td>{toText(row.category)}</td><td>{toText(row.subject)}</td><td><Status>{titleStatus(row.status)}</Status></td>
                 </tr>
               ))}
             </tbody>
@@ -2077,6 +2077,7 @@ function ModuleScreen({ moduleName, apiState, searchQuery }: { moduleName: strin
   const [status, setStatus] = useState('All')
   const [selected, setSelected] = useState<{ resource: string; record: DpoRecord } | null>(null)
   const [creatingResource, setCreatingResource] = useState<string | null>(null)
+  const showTools = !['Designation Master List', 'Complaint Management', 'Payments & Finance', 'Website CMS'].includes(moduleName)
   const { columns, rows, resourceTitle } = useMemo(
     () => getLiveModuleTable(moduleName, status, apiState, searchQuery),
     [moduleName, status, apiState, searchQuery],
@@ -2084,6 +2085,11 @@ function ModuleScreen({ moduleName, apiState, searchQuery }: { moduleName: strin
   const primaryResource = moduleResources[moduleName]?.[0] ?? 'members'
   const selectedResource = selected?.resource ?? primaryResource
   const selectedRecord = selected?.record ?? apiState.records[selectedResource]?.[0]
+  const statusFilters = moduleName === 'Complaint Management'
+    ? ['All', 'Pending', 'Under Review', 'Resolved', 'Closed']
+    : moduleName === 'Payments & Finance'
+      ? ['All', 'Pending', 'Paid']
+      : ['All', 'Active', 'Pending', 'Under Review', 'Failed']
   const runTool = (tool: string) => {
     if (tool.includes('Create') || tool.includes('Register') || tool.includes('Upload') || tool.includes('Add')) {
       setCreatingResource(primaryResource)
@@ -2131,20 +2137,23 @@ function ModuleScreen({ moduleName, apiState, searchQuery }: { moduleName: strin
   if (moduleName === 'Gallery Management') {
     return <GalleryManagementScreen apiState={apiState} searchQuery={searchQuery} />
   }
+  if (moduleName === 'Payments & Finance') {
+    return <PaymentsFinanceScreen apiState={apiState} searchQuery={searchQuery} />
+  }
 
   return (
     <div className="dashboard-wrap">
       <div className="dashboard-grid">
         <div className="col-12">
           <div className="inner-grid">
-            <div className="col-8">
+            <div className={showTools ? 'col-8' : 'col-12'}>
               <section className="logicsols-card table-card">
                 <div className="table-title">
                   <h2>{resourceTitle}</h2>
                   <button type="button" onClick={() => setCreatingResource(primaryResource)}>+ Add New</button>
                 </div>
                 <div className="table-filters">
-                  {['All', 'Active', 'Pending', 'Under Review', 'Failed'].map((filter) => (
+                  {statusFilters.map((filter) => (
                     <button className={status === filter ? 'active' : ''} type="button" key={filter} onClick={() => setStatus(filter)}>{filter}</button>
                   ))}
                 </div>
@@ -2169,17 +2178,19 @@ function ModuleScreen({ moduleName, apiState, searchQuery }: { moduleName: strin
               </section>
             </div>
 
-            <div className="col-4">
-              <section className="logicsols-card module-side-panel">
-                <h2>{moduleName} Tools</h2>
-                {getModuleTools(moduleName).map((tool) => (
-                  <button type="button" key={tool} onClick={() => runTool(tool)}>
-                    <span>{tool}</span>
-                    <ChevronRight size={15} />
-                  </button>
-                ))}
-              </section>
-            </div>
+            {showTools && (
+              <div className="col-4">
+                <section className="logicsols-card module-side-panel">
+                  <h2>{moduleName} Tools</h2>
+                  {getModuleTools(moduleName).map((tool) => (
+                    <button type="button" key={tool} onClick={() => runTool(tool)}>
+                      <span>{tool}</span>
+                      <ChevronRight size={15} />
+                    </button>
+                  ))}
+                </section>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2387,6 +2398,124 @@ function MemberKpi({ icon: Icon, label, value, note, tone }: { icon: LucideIcon;
         <small>{note}</small>
       </div>
     </article>
+  )
+}
+
+const paymentSettingFields = [
+  ['payment_account_title', 'Account Title'],
+  ['payment_bank_name', 'Bank Name'],
+  ['payment_account_number', 'Account Number'],
+  ['payment_iban', 'IBAN'],
+  ['payment_instructions_note', 'Payment Note'],
+] as const
+
+function PaymentsFinanceScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
+  const [status, setStatus] = useState('All')
+  const [selected, setSelected] = useState<{ resource: string; record: DpoRecord } | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [bankModalOpen, setBankModalOpen] = useState(false)
+  const [draft, setDraft] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const paymentSettings = apiState.records.settings?.filter((setting) => paymentSettingFields.some(([key]) => key === toText(setting.key))) ?? []
+  const { columns, rows } = useMemo(
+    () => getLiveModuleTable('Payments & Finance', status, apiState, searchQuery),
+    [status, apiState, searchQuery],
+  )
+
+  useEffect(() => {
+    const nextDraft = Object.fromEntries(paymentSettingFields.map(([key]) => {
+      const setting = paymentSettings.find((item) => toText(item.key) === key)
+      return [key, formatSettingValue(setting?.value ?? '')]
+    }))
+    setDraft(nextDraft)
+  }, [apiState.records.settings])
+
+  const saveBankDetails = async () => {
+    setSaving(true)
+    setMessage('')
+    try {
+      for (const [key] of paymentSettingFields) {
+        const setting = paymentSettings.find((item) => toText(item.key) === key)
+        if (setting) {
+          await apiState.updateRecord('settings', setting.id, { value: draft[key] ?? '', status: 'active' })
+        }
+      }
+      setMessage('Bank details updated.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Bank details could not be updated.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="dashboard-wrap">
+      <div className="dashboard-grid">
+        <div className="col-12">
+          <section className="logicsols-card table-card">
+            <div className="table-title">
+              <h2>Manual Payments</h2>
+              <div className="toolbar-actions">
+                <button type="button" onClick={() => setBankModalOpen(true)}>Bank Details</button>
+                <button type="button" onClick={() => setCreating(true)}>+ Add Payment</button>
+              </div>
+            </div>
+            <div className="table-filters">
+              {['All', 'Pending', 'Paid'].map((filter) => (
+                <button className={status === filter ? 'active' : ''} type="button" key={filter} onClick={() => setStatus(filter)}>{filter}</button>
+              ))}
+            </div>
+            <p className="filter-result inline-result">Showing <b>{rows.length}</b> records for <b>{status}</b>.</p>
+            <div className="table-scroll">
+              <table>
+                <thead><tr>{columns.map((head) => <th key={head}>{head}</th>)}</tr></thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id} onClick={() => setSelected({ resource: row.resource, record: row.record })}>
+                      {row.cells.map((cell, index) => (
+                        <td key={`${row.id}-${columns[index]}`}>
+                          {isStatusCell(columns[index]) ? <Status>{cell}</Status> : cell}
+                        </td>
+                      ))}
+                      <td><button className="row-btn" type="button" onClick={(event) => { event.stopPropagation(); setSelected({ resource: row.resource, record: row.record }) }}>Open</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+      {bankModalOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <aside className="record-drawer compact-drawer">
+            <div className="drawer-head">
+              <div>
+                <span>Payments & Finance</span>
+                <h2>Bank Details</h2>
+              </div>
+              <button type="button" onClick={() => setBankModalOpen(false)}>Close</button>
+            </div>
+            <div className="drawer-form">
+              {paymentSettingFields.map(([key, label]) => (
+                <label key={key}>
+                  <span>{label}</span>
+                  <input value={draft[key] ?? ''} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} />
+                </label>
+              ))}
+            </div>
+            {message && <p className="filter-result inline-result">{message}</p>}
+            <div className="drawer-footer">
+              <button type="button" onClick={() => setBankModalOpen(false)}>Cancel</button>
+              <button type="button" disabled={saving} onClick={() => void saveBankDetails()}>{saving ? 'Saving...' : 'Save Details'}</button>
+            </div>
+          </aside>
+        </div>
+      )}
+      {selected && <RecordDrawer title="Manual Payment" resource={selected.resource} record={selected.record} apiState={apiState} onClose={() => setSelected(null)} />}
+      {creating && <CreateRecordModal resource="payments" apiState={apiState} onClose={() => setCreating(false)} />}
+    </div>
   )
 }
 
@@ -3553,35 +3682,38 @@ function GalleryDropzone({ onUpload }: { onUpload: (files: FileList | null) => v
   )
 }
 
+const cmsPageGroups = [
+  { label: 'Home', slugs: ['home'], prefixes: ['home-'] },
+  { label: 'About', slugs: ['about'], prefixes: ['about-'] },
+  { label: 'Action Plan', slugs: ['action-plan'], prefixes: ['action-plan-'] },
+  { label: 'Membership', slugs: ['membership', 'membership-application'], prefixes: ['membership-'] },
+  { label: 'Designations', slugs: ['designations', 'designation-application'], prefixes: ['designations-', 'designation-'] },
+  { label: 'Cards', slugs: ['card-design'], prefixes: ['card-design-'] },
+  { label: 'Gallery', slugs: ['gallery'], prefixes: ['gallery-'] },
+  { label: 'Legal', slugs: ['legal', 'privacy-policy', 'terms-and-conditions', 'refund-policy', 'donation-policy', 'data-cnic-privacy-policy'], prefixes: ['legal-'] },
+  { label: 'Contact', slugs: ['contact'], prefixes: ['contact-'] },
+  { label: 'Member Services', slugs: ['member-services', 'application-status'], prefixes: ['member-services-', 'application-status-'] },
+]
+
 function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searchQuery: string }) {
-  const [tab, setTab] = useState('Pages')
-  const [language, setLanguage] = useState('All')
+  const [selectedPage, setSelectedPage] = useState(cmsPageGroups[0].label)
   const [status, setStatus] = useState('All')
-  const [pageType, setPageType] = useState('All')
   const [editorState, setEditorState] = useState<{ mode: 'create' | 'edit'; record?: DpoRecord } | null>(null)
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const pages = apiState.records['cms-pages'] ?? []
-  const homePage = pages.find((page) => toText(page.slug) === 'home') ?? pages[0]
-  const heroSlides = getHeroSlides(homePage)
   const cmsAssets = collectCmsAssets(pages)
+  const selectedGroup = cmsPageGroups.find((group) => group.label === selectedPage) ?? cmsPageGroups[0]
   const visiblePages = pages.filter((page) => {
+    const slug = toText(page.slug)
+    const matchesPage = selectedGroup.slugs.includes(slug) || selectedGroup.prefixes.some((prefix) => slug.startsWith(prefix))
     const matchesSearch = searchQuery ? searchableText(page).includes(searchQuery.toLowerCase()) : true
-    const pageLanguage = toText(page.language ?? page.lang ?? 'EN') || 'EN'
-    const matchesLanguage = language === 'All' || pageLanguage === language
     const matchesStatus = status === 'All' || normalizeStatus(page.status) === normalizeStatus(status)
-    const matchesType = pageType === 'All' || toText(page.type) === pageType
-    return matchesSearch && matchesLanguage && matchesStatus && matchesType
+    return matchesPage && matchesSearch && matchesStatus
   })
-  const languageOptions = ['All', ...Array.from(new Set(pages.map((page) => toText(page.language ?? page.lang ?? 'EN') || 'EN')))]
   const statusOptions = ['All', ...Array.from(new Set(pages.map((page) => titleStatus(page.status)).filter(Boolean)))]
-  const typeOptions = ['All', ...Array.from(new Set(pages.map((page) => toText(page.type)).filter(Boolean)))]
   const drafts = pages.filter((page) => normalizeStatus(page.status) === 'draft').length
   const published = pages.filter((page) => normalizeStatus(page.status) === 'published').length
-  const seoIssues = pages.filter((page) => !toText(page.seoTitle)).length
-  const exportPages = () => downloadCsv('Website CMS', visiblePages.map((record) => ({
-    cells: ['titleEnglish', 'slug', 'type', 'seoTitle', 'status', 'updatedAt'].map((key) => formatCompactValue(record[key])),
-  })))
   const handleCmsAction = async (page: DpoRecord, action: 'publish' | 'archive' | 'draft') => {
     setOpenMenuId(null)
     if (action === 'publish') {
@@ -3603,86 +3735,73 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
       <section className="member-kpis">
         <MemberKpi icon={FileText} label="Published Pages" value={published} note="Live website content" tone="success" />
         <MemberKpi icon={FileText} label="Draft Updates" value={drafts} note="Waiting to publish" tone="warning" />
-        <MemberKpi icon={GalleryHorizontalEnd} label="Hero Slides" value={heroSlides.length} note="DPO supplied assets" tone="success" />
-        <MemberKpi icon={AlertTriangle} label="SEO Issues" value={seoIssues} note="Missing SEO title" tone="danger" />
+        <MemberKpi icon={GalleryHorizontalEnd} label="Media Files" value={cmsAssets.length} note="Used by pages" tone="success" />
       </section>
 
       <section className="members-table-panel cms-workspace-panel">
         <div className="cms-tabs">
-          {['Pages', 'Hero Slides', 'Organization Content', 'Media Library', 'SEO', 'Social Links', 'Legal Pages'].map((item) => (
-            <button className={tab === item ? 'active' : ''} type="button" key={item} onClick={() => setTab(item)}>{item}</button>
+          {cmsPageGroups.map((group) => (
+            <button className={selectedPage === group.label ? 'active' : ''} type="button" key={group.label} onClick={() => setSelectedPage(group.label)}>
+              {group.label}
+            </button>
           ))}
         </div>
 
         <div className="members-toolbar cms-toolbar">
-          <button className="primary-action" type="button" onClick={() => setEditorState({ mode: 'create' })}><Plus size={16} /> New Page</button>
-          <button className="soft-action" type="button" onClick={() => visiblePages[0] && void handleCmsAction(visiblePages[0], 'publish')}>Publish Selected</button>
-          <button className="soft-action" type="button" onClick={exportPages}><Download size={15} /> Export</button>
-          <label className="filter-field">
-            <span>Language</span>
-            <select value={language} onChange={(event) => setLanguage(event.target.value)}>
-              {languageOptions.map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </label>
+          <button className="primary-action" type="button" onClick={() => setEditorState({ mode: 'create', record: { id: '', slug: `${selectedGroup.slugs[0]}-section`, type: 'page', status: 'draft' } })}><Plus size={16} /> New Section</button>
           <label className="filter-field">
             <span>Status</span>
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               {statusOptions.map((item) => <option key={item}>{item}</option>)}
             </select>
           </label>
-          <label className="filter-field">
-            <span>Page Type</span>
-            <select value={pageType} onChange={(event) => setPageType(event.target.value)}>
-              {typeOptions.map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </label>
         </div>
 
-        {tab === 'Pages' ? (
-          <div className="production-table-scroll">
-            <table className="production-members-table cms-table">
-              <thead>
-                <tr>{['Page', 'Slug', 'Language', 'Type', 'SEO Title', 'Last Updated', 'Status', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
-              </thead>
-              <tbody>
-                {visiblePages.map((page) => (
-                  <tr key={page.id} onClick={() => setEditorState({ mode: 'edit', record: page })}>
-                    <td><b>{toText(page.titleEnglish) || toText(page.titleUrdu) || '-'}</b><small>{toText(page.titleUrdu)}</small></td>
-                    <td>/{toText(page.slug).replace(/^\/+/, '')}</td>
-                    <td><Tag tone="info">{toText(page.language ?? page.lang ?? 'EN') || 'EN'}</Tag></td>
-                    <td>{titleStatus(page.type)}</td>
-                    <td>{toText(page.seoTitle) || '-'}</td>
-                    <td>{formatDate(page.updatedAt)}</td>
-                    <td><Status>{titleStatus(page.status)}</Status></td>
-                    <td>
-                      <div className="member-row-actions">
-                        <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); setEditorState({ mode: 'edit', record: page }) }}>Edit</button>
-                        <button className="icon-table-btn view-btn" type="button" aria-label="Preview page" onClick={(event) => { event.stopPropagation(); setEditorState({ mode: 'edit', record: page }) }}><Eye size={16} /></button>
-                        <div className="row-menu-wrap">
-                          <button className="icon-table-btn more-btn" type="button" aria-label="More CMS actions" onClick={(event) => { event.stopPropagation(); setOpenMenuId(openMenuId === page.id ? null : page.id) }}>
-                            <MoreVertical size={16} />
-                          </button>
-                          {openMenuId === page.id && (
-                            <div className="row-action-menu" onClick={(event) => event.stopPropagation()}>
-                              <button type="button" onClick={() => void handleCmsAction(page, 'publish')}>Publish</button>
-                              <button type="button" onClick={() => void handleCmsAction(page, 'draft')}>Save Draft</button>
-                              <button type="button" onClick={() => void handleCmsAction(page, 'archive')}>Archive</button>
-                            </div>
-                          )}
-                        </div>
+        <div className="production-table-scroll">
+          <table className="production-members-table cms-table">
+            <thead>
+              <tr>{['Section', 'Slug', 'Image', 'Last Updated', 'Status', 'Actions'].map((heading) => <th key={heading}>{heading}</th>)}</tr>
+            </thead>
+            <tbody>
+              {visiblePages.map((page) => (
+                <tr key={page.id} onClick={() => setEditorState({ mode: 'edit', record: page })}>
+                  <td><b>{toText(page.titleEnglish) || '-'}</b><small>{toText(asObject(page.content).bodyEnglish ?? page.excerpt)}</small></td>
+                  <td>/{toText(page.slug).replace(/^\/+/, '')}</td>
+                  <td>{toText(page.image ?? asObject(page.content).image) || '-'}</td>
+                  <td>{formatDate(page.updatedAt)}</td>
+                  <td><Status>{titleStatus(page.status)}</Status></td>
+                  <td>
+                    <div className="member-row-actions">
+                      <button className="generate-card-row" type="button" onClick={(event) => { event.stopPropagation(); setEditorState({ mode: 'edit', record: page }) }}>Edit</button>
+                      <div className="row-menu-wrap">
+                        <button className="icon-table-btn more-btn" type="button" aria-label="More CMS actions" onClick={(event) => { event.stopPropagation(); setOpenMenuId(openMenuId === page.id ? null : page.id) }}>
+                          <MoreVertical size={16} />
+                        </button>
+                        {openMenuId === page.id && (
+                          <div className="row-action-menu" onClick={(event) => event.stopPropagation()}>
+                            <button type="button" onClick={() => void handleCmsAction(page, 'publish')}>Publish</button>
+                            <button type="button" onClick={() => void handleCmsAction(page, 'draft')}>Draft</button>
+                            <button type="button" onClick={() => void handleCmsAction(page, 'archive')}>Archive</button>
+                          </div>
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="cms-tab-empty">
-            <h2>{tab}</h2>
-            <p>Content is loaded from the CMS database and DPO assets.</p>
-          </div>
-        )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!visiblePages.length && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="cms-tab-empty">
+                      <h2>No sections found</h2>
+                      <p>Create a section for {selectedPage} or change the status filter.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         <div className="cms-media-strip">
           <div>
@@ -3737,13 +3856,15 @@ function CmsContentEditor({
     titleEnglish: toText(record?.titleEnglish),
     titleUrdu: toText(record?.titleUrdu),
     slug: toText(record?.slug),
-    type: toText(record?.type) || 'content',
-    language: toText(record?.language ?? record?.lang) || 'EN',
+    type: toText(record?.type) || 'page',
     status: normalizeStatus(record?.status) || 'draft',
+    image: toText(record?.image ?? recordContent.image),
+    language: toText(record?.language ?? record?.lang) || 'EN',
     seoTitle: toText(record?.seoTitle),
     metaDescription: toText(recordContent.metaDescription ?? recordContent.description ?? record?.metaDescription),
     contentEnglish: cmsEditorText(record, 'en'),
     contentUrdu: cmsEditorText(record, 'ur'),
+    items: valueList(recordContent.items).join('\n'),
   })
   const [saving, setSaving] = useState(false)
 
@@ -3751,19 +3872,22 @@ function CmsContentEditor({
   const saveCmsPage = async (nextStatus = draft.status) => {
     setSaving(true)
     try {
-      const cleanSlug = (draft.slug || slugify(draft.titleEnglish || draft.titleUrdu || 'cms-page')).replace(/^\/+/, '')
+      const cleanSlug = (draft.slug || slugify(draft.titleEnglish || 'cms-page')).replace(/^\/+/, '')
       const payload = {
         titleEnglish: draft.titleEnglish.trim() || 'Untitled Page',
-        titleUrdu: draft.titleUrdu.trim(),
         slug: cleanSlug,
         type: draft.type,
         language: draft.language,
         status: nextStatus,
+        image: draft.image.trim(),
+        excerpt: draft.contentEnglish.trim(),
         seoTitle: draft.seoTitle.trim(),
         content: {
           ...recordContent,
           bodyEnglish: draft.contentEnglish,
           bodyUrdu: draft.contentUrdu,
+          image: draft.image.trim(),
+          items: draft.items.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
           metaDescription: draft.metaDescription,
           updatedFromCmsEditor: true,
         },
@@ -3795,7 +3919,7 @@ function CmsContentEditor({
 
         <div className="cms-editor-grid">
           <label className="cms-editor-field">
-            <span>English Title</span>
+            <span>Page Title</span>
             <input value={draft.titleEnglish} onChange={(event) => updateDraft('titleEnglish', event.target.value)} placeholder="About Defenders of Pakistan" />
           </label>
           <label className="cms-editor-field urdu-field">
@@ -3803,13 +3927,13 @@ function CmsContentEditor({
             <input dir="rtl" lang="ur" value={draft.titleUrdu} onChange={(event) => updateDraft('titleUrdu', event.target.value)} placeholder="پاکستان کے محافظ" />
           </label>
           <label className="cms-editor-field">
-            <span>Slug</span>
+            <span>Page Slug</span>
             <input value={draft.slug} onChange={(event) => updateDraft('slug', event.target.value)} placeholder="about" />
           </label>
           <label className="cms-editor-field">
-            <span>Content Type</span>
+            <span>Page Type</span>
             <select value={draft.type} onChange={(event) => updateDraft('type', event.target.value)}>
-              {['home', 'about', 'content', 'legal', 'gallery', 'hero', 'seo', 'social'].map((item) => <option key={item} value={item}>{titleStatus(item)}</option>)}
+              {['page', 'legal', 'news'].map((item) => <option key={item} value={item}>{titleStatus(item)}</option>)}
             </select>
           </label>
           <label className="cms-editor-field">
@@ -3829,16 +3953,16 @@ function CmsContentEditor({
             </select>
           </label>
           <label className="cms-editor-field wide">
-            <span>SEO Title</span>
-            <input value={draft.seoTitle} onChange={(event) => updateDraft('seoTitle', event.target.value)} placeholder="SEO title for website page" />
+            <span>Image Path</span>
+            <input value={draft.image} onChange={(event) => updateDraft('image', event.target.value)} placeholder="/dpo-assets/home-hero-v2.jpg" />
           </label>
           <label className="cms-editor-field wide">
-            <span>Meta Description</span>
-            <textarea value={draft.metaDescription} onChange={(event) => updateDraft('metaDescription', event.target.value)} placeholder="Short search description" />
+            <span>List Items</span>
+            <textarea value={draft.items} onChange={(event) => updateDraft('items', event.target.value)} placeholder="One item per line" />
           </label>
           <label className="cms-editor-field wide">
-            <span>English Content Editor</span>
-            <textarea className="cms-text-editor" value={draft.contentEnglish} onChange={(event) => updateDraft('contentEnglish', event.target.value)} placeholder="Write complete English website content here..." />
+            <span>Page Text</span>
+            <textarea className="cms-text-editor" value={draft.contentEnglish} onChange={(event) => updateDraft('contentEnglish', event.target.value)} placeholder="Write page text here..." />
           </label>
           <label className="cms-editor-field wide">
             <span>Urdu Content Editor</span>
@@ -3863,10 +3987,7 @@ function getModuleTools(moduleName: string) {
     'Designation Applications': ['Approve', 'Reject', 'Request Changes', 'Change Area', 'Change Designation', 'Generate Card', 'Generate Appointment Letter'],
     'Active Designations': ['Change Area', 'Change Designation', 'Generate Appointment Letter', 'Suspend', 'Revoke', 'Renew'],
     'Designation Renewals': ['Approve Renewal', 'Reject', 'Mark Paid', 'Export CSV'],
-    'Designation Master List': ['Add Designation', 'Edit Fee', 'Deactivate', 'Export CSV'],
     'Geographic Areas': ['Add Area', 'Edit Hierarchy', 'Deactivate Area', 'Office Bearers', 'International Region'],
-    'Complaint Management': ['Change Priority', 'Change Status', 'Internal Note', 'Public Update', 'Escalate', 'Resolve', 'Close Case', 'Reopen'],
-    'Payments & Finance': ['View Callback', 'Verify Manually', 'Mark Offline Payment', 'Generate Receipt', 'Refund', 'Export CSV', 'Export PDF'],
     'Gallery Management': ['Upload Images', 'Set Cover', 'Reorder Images', 'Publish Album', 'Archive'],
     'Website CMS': ['Edit Hero Slides', 'Edit Mission', 'SEO Settings', 'Legal Pages', 'Social Links', 'Publish'],
     'Card Templates': ['Preview', 'Edit Front Layout', 'Edit Back Layout', 'Version History', 'Activate Template'],
@@ -3952,10 +4073,10 @@ function getLiveColumns(moduleName: string) {
     'Designation Applications': ['Record No', 'Name', 'CNIC', 'Designation', 'Wing', 'Province', 'District', 'Area', 'Payment Status', 'Status', 'Validity'],
     'Active Designations': ['Name', 'Membership No', 'Designation', 'Wing', 'Province', 'District', 'Area', 'Issue Date', 'Expiry Date', 'Status'],
     'Designation Renewals': ['Record No', 'Name', 'Designation', 'District', 'Payment Status', 'Status', 'Updated'],
-    'Designation Master List': ['Designation', 'Wing', 'Base Amount', 'Service Fee', 'Validity', 'Status'],
+    'Designation Master List': ['Designation', 'Amount', 'Validity', 'Status'],
     'Geographic Areas': ['Area ID', 'Country', 'Province', 'Division', 'District', 'Tehsil', 'Union Council', 'Status'],
-    'Complaint Management': ['Complaint No', 'Name', 'CNIC', 'Category', 'Priority', 'Subject', 'Status', 'Officer', 'Submitted Date', 'Last Update'],
-    'Payments & Finance': ['Order ID', 'Transaction ID', 'User', 'Payment Type', 'Base Amount', 'Service Fee', 'Total Amount', 'Gateway', 'Status', 'Paid Date', 'Refund Status'],
+    'Complaint Management': ['Complaint No', 'Name', 'Phone', 'Category', 'Subject', 'Description', 'Status'],
+    'Payments & Finance': ['Payment No', 'User', 'Payment Type', 'Amount', 'Method', 'Reference No', 'Status'],
     'Gallery Management': ['Album ID', 'Title English', 'Title Urdu', 'Images', 'Cover', 'Event Date', 'Publish Status', 'Status'],
     'Website CMS': ['Setting Key', 'Description', 'Current Value', 'Scope', 'Last Updated', 'Updated By', 'Status'],
     'Card Templates': ['Record No', 'Type', 'Template Version', 'QR Code', 'Status', 'Updated'],
@@ -3996,19 +4117,20 @@ function formatCell(column: string, record: DpoRecord, resource: string) {
     Validity: record.validityMonths ? `${toText(record.validityMonths)} Months` : record.expiryDate,
     'Complaint No': record.complaintNumber,
     Category: record.category,
-    Priority: record.priority,
     Subject: record.subject,
-    Officer: record.assignedOfficer,
-    SLA: record.slaDueAt,
     'Submitted Date': record.submittedDate,
     'Last Update': record.updatedAt,
     'Order ID': record.orderId,
+    'Payment No': record.orderId,
     'Transaction ID': record.gatewayTransactionId,
+    'Reference No': record.gatewayTransactionId,
     User: record.user,
     'Payment Type': record.paymentType,
     'Base Amount': formatCurrency(record.baseAmount),
     'Service Fee': formatCurrency(record.serviceFee),
     'Total Amount': formatCurrency(record.totalAmount),
+    Amount: formatCurrency(record.amount),
+    Method: record.gateway,
     Gateway: record.gateway,
     'Paid Date': record.paidDate,
     'Refund Status': record.refundStatus,
@@ -4045,7 +4167,7 @@ function formatCell(column: string, record: DpoRecord, resource: string) {
     'Generated By': record.generatedBy ?? record.actor ?? '-',
     'Last Run': record.lastRunAt ?? record.createdAt,
     'Setting Key': record.key ?? record.name,
-    Description: record.label ?? record.description,
+    Description: record.description ?? record.message ?? record.label,
     'Current Value': formatSettingValue(record.value ?? record.permissions),
     Scope: record.group ?? record.role ?? resource,
     'Last Updated': record.updatedAt,
@@ -4057,7 +4179,7 @@ function formatCell(column: string, record: DpoRecord, resource: string) {
 }
 
 function RecordDrawer({ title, resource, record, apiState, startEditing = false, onClose }: { title: string; resource: string; record: DpoRecord; apiState: ApiState; startEditing?: boolean; onClose: () => void }) {
-  const [draft, setDraft] = useState<Record<string, string>>(() => editableDraft(record))
+  const [draft, setDraft] = useState<Record<string, string>>(() => editableDraft(record, resource))
   const [editing, setEditing] = useState(startEditing)
   const actionButtons = getRecordActions(resource)
   const save = async () => {
@@ -4076,13 +4198,15 @@ function RecordDrawer({ title, resource, record, apiState, startEditing = false,
           </div>
           <button type="button" onClick={onClose}>Close</button>
         </div>
-        <div className="drawer-actions">
-          {actionButtons.map((action) => (
-            <button type="button" key={action.label} onClick={() => void apiState.runAction(resource, record.id, action.action)}>
-              {action.label}
-            </button>
-          ))}
-        </div>
+        {actionButtons.length > 0 && (
+          <div className="drawer-actions">
+            {actionButtons.map((action) => (
+              <button type="button" key={action.label} onClick={() => void apiState.runAction(resource, record.id, action.action)}>
+                {action.label}
+              </button>
+            ))}
+          </div>
+        )}
         {resource.includes('applications') && <ApplicationDocumentReview key={record.id} resource={resource} record={record} apiState={apiState} />}
         {editing ? (
           <div className="drawer-form">
@@ -4269,8 +4393,12 @@ function DraftField({ resource, fieldKey, value, apiState, onChange }: { resourc
   return <input value={value} placeholder={fieldPlaceholder(resource, fieldKey)} onChange={(event) => onChange(event.target.value)} />
 }
 
-function editableDraft(record: DpoRecord) {
-  const keys = Object.keys(record).filter((key) => !['id', 'createdAt', 'updatedAt'].includes(key)).slice(0, 12)
+function editableDraft(record: DpoRecord, resource?: string) {
+  const resourceFields: Record<string, string[]> = {
+    'designation-master-list': ['designation', 'amount', 'validityMonths', 'status'],
+    complaints: ['complaintNumber', 'name', 'phone', 'category', 'subject', 'description', 'status'],
+  }
+  const keys = resourceFields[resource ?? ''] ?? Object.keys(record).filter((key) => !['id', 'createdAt', 'updatedAt'].includes(key)).slice(0, 12)
   return Object.fromEntries(keys.map((key) => [key, formatSettingValue(record[key])]))
 }
 
@@ -4278,15 +4406,29 @@ function defaultDraft(resource: string): Record<string, string> {
   const suffix = Date.now().toString().slice(-5)
   const fields: Record<string, string[]> = {
     members: ['membershipNumber', 'name', 'email', 'phone', 'cnicMasked', 'district', 'country', 'paymentStatus', 'status'],
-    complaints: ['complaintNumber', 'name', 'cnicMasked', 'category', 'priority', 'subject', 'status'],
-    payments: ['orderId', 'gatewayTransactionId', 'user', 'paymentType', 'baseAmount', 'serviceFee', 'totalAmount', 'gateway', 'status'],
+    complaints: ['complaintNumber', 'name', 'phone', 'category', 'subject', 'description', 'status'],
+    payments: ['orderId', 'user', 'paymentType', 'amount', 'gateway', 'gatewayTransactionId', 'status'],
     'active-designations': ['holder', 'membershipNumber', 'designation', 'wing', 'province', 'district', 'area', 'issueDate', 'expiryDate', 'status'],
+    'designation-master-list': ['designation', 'amount', 'validityMonths', 'status'],
     settings: ['key', 'label', 'group', 'value', 'status'],
   }
 
   const draft = Object.fromEntries((fields[resource] ?? ['name', 'title', 'status']).map((field) => [field, '']))
   if (resource === 'members') {
     draft.membershipNumber = `DPO-${new Date().getFullYear()}-${suffix}`
+  }
+  if (resource === 'designation-master-list') {
+    draft.validityMonths = '12'
+    draft.status = 'active'
+  }
+  if (resource === 'complaints') {
+    draft.complaintNumber = `CMP-${Date.now()}`
+    draft.status = 'pending'
+  }
+  if (resource === 'payments') {
+    draft.orderId = `PAY-${Date.now()}`
+    draft.gateway = 'Manual Transfer'
+    draft.status = 'pending'
   }
   return draft
 }
@@ -4301,15 +4443,32 @@ function fieldPlaceholder(resource: string, key: string) {
     phone: '+92 300 0000000',
     email: 'name@example.com',
     totalAmount: '2000',
+    amount: '2000',
     baseAmount: '1800',
     serviceFee: '200',
     imei: '356000000000000',
-    status: resource === 'payments' ? 'pending / paid / failed' : 'active / pending / suspended',
+    status: resource === 'designation-master-list' ? 'active / inactive' : resource === 'payments' ? 'pending / paid' : 'active / pending / suspended',
   }
   return placeholders[key] ?? `Enter ${titleStatus(key).toLowerCase()}`
 }
 
 function selectOptions(resource: string, key: string, apiState?: ApiState) {
+  if (resource === 'complaints' && key === 'status') {
+    return [
+      { label: 'Pending', value: 'pending' },
+      { label: 'Under Review', value: 'under_review' },
+      { label: 'Resolved', value: 'resolved' },
+      { label: 'Closed', value: 'closed' },
+    ]
+  }
+
+  if (resource === 'designation-master-list' && key === 'status') {
+    return [
+      { label: 'Active', value: 'active' },
+      { label: 'Inactive', value: 'inactive' },
+    ]
+  }
+
   if (key === 'designation' && resource !== 'designation-master-list') {
     const designationOptions = (apiState?.records['designation-master-list'] ?? [])
       .map((record) => toText(record.designation))
@@ -4359,8 +4518,26 @@ function selectOptions(resource: string, key: string, apiState?: ApiState) {
       { label: 'EasyPaisa', value: 'EasyPaisa' },
       { label: 'Bank Transfer', value: 'Bank Transfer' },
     ],
+    wing: [
+      { label: 'General', value: 'General' },
+      { label: 'Youth Wing', value: 'Youth Wing' },
+      { label: 'Women Wing', value: 'Women Wing' },
+      { label: 'Welfare', value: 'Welfare' },
+      { label: 'Membership', value: 'Membership' },
+      { label: 'Media', value: 'Media' },
+    ],
+    validityMonths: [
+      { label: '12 Months', value: '12' },
+      { label: '24 Months', value: '24' },
+      { label: '36 Months', value: '36' },
+    ],
   }
-  if (resource === 'payments' && key === 'status') return shared.paymentStatus
+  if (resource === 'payments' && key === 'status') {
+    return [
+      { label: 'Pending', value: 'pending' },
+      { label: 'Paid', value: 'paid' },
+    ]
+  }
   return shared[key] ?? []
 }
 
@@ -4388,7 +4565,7 @@ function normalizeDraft(draft: Record<string, string>) {
 
 function getRecordActions(resource: string) {
   if (resource === 'complaints') {
-    return [{ label: 'Resolve', action: 'resolve' }, { label: 'Close', action: 'close' }]
+    return []
   }
   if (resource === 'payments') {
     return [{ label: 'Mark Paid', action: 'markPaid' }, { label: 'Fail', action: 'fail' }]
@@ -4406,15 +4583,6 @@ function formatSettingValue(value: unknown) {
   if (Array.isArray(value)) return value.join(', ')
   if (typeof value === 'object' && value !== null) return JSON.stringify(value)
   return toText(value)
-}
-
-function getHeroSlides(page?: DpoRecord) {
-  const content = page?.content
-  if (typeof content === 'object' && content !== null && 'heroSlides' in content) {
-    const slides = (content as { heroSlides?: unknown }).heroSlides
-    if (Array.isArray(slides)) return slides.map((slide) => toText(slide)).filter(Boolean)
-  }
-  return ['/dpo-assets/front-1.png', '/dpo-assets/front-2.png', '/dpo-assets/front-3.png', '/dpo-assets/front-4.png']
 }
 
 function getAlbumImages(album: DpoRecord) {

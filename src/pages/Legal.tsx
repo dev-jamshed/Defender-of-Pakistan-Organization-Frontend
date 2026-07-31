@@ -3,14 +3,26 @@ import { Link, useParams } from 'react-router-dom'
 import { Reveal, Stagger, StaggerItem } from '../components/public/Motion'
 import PublicLayout from '../components/public/PublicLayout'
 import { CtaBand, PageIntro, SectionHeader } from '../components/public/PublicUi'
-import { legalPolicies, organization } from '../content/publicContent'
+import { legalPolicies } from '../content/publicContent'
+import { cmsImage, cmsList, cmsText, cmsTitle, organizationFromSettings, useCmsPage, usePublicSite } from '../lib/publicCms'
 
 export default function Legal() {
   const { slug } = useParams()
-  const active = legalPolicies.find((policy) => policy.slug === slug)
+  const site = usePublicSite()
+  const indexPage = useCmsPage('legal')
+  const cmsPolicy = slug ? site.cms.find((page) => String(page.slug) === slug) : undefined
+  const fallbackPolicy = legalPolicies.find((policy) => policy.slug === slug)
+  const active = cmsPolicy
+    ? {
+      slug: String(cmsPolicy.slug),
+      title: cmsTitle(cmsPolicy, fallbackPolicy?.title ?? 'Legal Policy'),
+      summary: cmsText(cmsPolicy, fallbackPolicy?.summary ?? ''),
+      points: cmsList(cmsPolicy, 'items', fallbackPolicy?.points ?? []),
+    }
+    : fallbackPolicy
   return (
     <PublicLayout>
-      <PageIntro eyebrow="Legal & Privacy" index="07" title={active ? active.title : 'Clear policies build public trust.'} text={active ? active.summary : 'Review how DPO handles website use, member information, identity records, payments, refunds and donations.'} image="/dpo-assets/home-hero-v2.jpg" />
+      <PageIntro eyebrow="Legal & Privacy" index="07" title={active ? active.title : cmsTitle(indexPage, 'Clear policies build public trust.')} text={active ? active.summary : cmsText(indexPage, 'Review how DPO handles website use, member information, identity records, payments, refunds and donations.')} image={cmsImage(active ? cmsPolicy : indexPage, '/dpo-assets/home-hero-v2.jpg')} />
 
       {active ? <PolicyDetail active={active} /> : <PolicyIndex />}
 
@@ -24,5 +36,7 @@ function PolicyIndex() {
 }
 
 function PolicyDetail({ active }: { active: (typeof legalPolicies)[number] }) {
-  return <section className="dpo-section dpo-section--paper"><div className="dpo-container dpo-policy-reader"><aside><Link className="dpo-policy-reader__back" to="/legal"><ArrowLeft size={15} /> All policies</Link><span>Policy library</span>{legalPolicies.map((policy) => <Link className={policy.slug === active.slug ? 'active' : ''} to={`/legal/${policy.slug}`} key={policy.slug}>{policy.title}<ArrowRight size={13} /></Link>)}</aside><article><Reveal><span className="dpo-eyebrow">Official public policy</span><h2>{active.title}</h2><p className="dpo-policy-reader__summary">{active.summary}</p></Reveal><div className="dpo-policy-reader__meta"><span>Organization</span><b>{organization.name}</b><span>Applies to</span><b>Website visitors, applicants and members</b><span>Status</span><b>Public guidance</b></div><Stagger className="dpo-policy-reader__points">{active.points.map((point, index) => <StaggerItem key={point}><div><span>{String(index + 1).padStart(2, '0')}</span><CheckCircle2 size={20} /><p>{point}</p></div></StaggerItem>)}</Stagger><Reveal className="dpo-policy-reader__notice"><ShieldCheck size={22} /><p>For final legal wording, policy dates and jurisdiction-specific obligations, DPO should obtain review from its authorized legal adviser.</p></Reveal></article></div></section>
+  const site = usePublicSite()
+  const org = organizationFromSettings(site.settings)
+  return <section className="dpo-section dpo-section--paper"><div className="dpo-container dpo-policy-reader"><aside><Link className="dpo-policy-reader__back" to="/legal"><ArrowLeft size={15} /> All policies</Link><span>Policy library</span>{legalPolicies.map((policy) => <Link className={policy.slug === active.slug ? 'active' : ''} to={`/legal/${policy.slug}`} key={policy.slug}>{policy.title}<ArrowRight size={13} /></Link>)}</aside><article><Reveal><span className="dpo-eyebrow">Official public policy</span><h2>{active.title}</h2><p className="dpo-policy-reader__summary">{active.summary}</p></Reveal><div className="dpo-policy-reader__meta"><span>Organization</span><b>{org.name}</b><span>Applies to</span><b>Website visitors, applicants and members</b><span>Status</span><b>Public guidance</b></div><Stagger className="dpo-policy-reader__points">{active.points.map((point, index) => <StaggerItem key={point}><div><span>{String(index + 1).padStart(2, '0')}</span><CheckCircle2 size={20} /><p>{point}</p></div></StaggerItem>)}</Stagger><Reveal className="dpo-policy-reader__notice"><ShieldCheck size={22} /><p>For final legal wording, policy dates and jurisdiction-specific obligations, DPO should obtain review from its authorized legal adviser.</p></Reveal></article></div></section>
 }

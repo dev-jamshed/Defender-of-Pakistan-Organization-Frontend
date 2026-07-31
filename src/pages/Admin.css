@@ -2653,6 +2653,13 @@ button {
   font-weight: 600;
 }
 
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .coverage-card {
   margin-top: 14px;
 }
@@ -5223,6 +5230,12 @@ tbody tr {
 
 .cms-text-editor {
   min-height: 240px !important;
+}
+
+.cms-editor-grid .urdu-field,
+.cms-editor-grid .urdu-field + .cms-editor-field + .cms-editor-field + .cms-editor-field,
+.cms-editor-grid .cms-editor-field:has(.urdu-editor) {
+  display: none;
 }
 
 .urdu-field span,
