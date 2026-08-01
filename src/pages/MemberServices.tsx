@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { fileToDocument, postPublic, publicApi } from '@/lib/publicApi'
 import PublicLayout from '../components/public/PublicLayout'
 import { PageIntro } from '../components/public/PublicUi'
+import { cmsImage, cmsText, cmsTitle, useCmsPage } from '../lib/publicCms'
 
 type Notice = { type: 'success' | 'error'; title: string; text: string } | null
 type ServiceTabValue = 'verify' | 'renewal' | 'card' | 'track-complaint' | 'complaint'
@@ -25,6 +26,7 @@ const serviceTabs: { value: ServiceTabValue; label: string; description: string;
 ]
 
 export default function MemberServices() {
+  const page = useCmsPage('member-services')
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const activeTab: ServiceTabValue = serviceTabs.some((tab) => tab.value === requestedTab) ? requestedTab as ServiceTabValue : 'verify'
@@ -34,7 +36,7 @@ export default function MemberServices() {
   }
 
   return <PublicLayout>
-    <PageIntro eyebrow="Member Services" index="SERVICES" title="Verification and support in one place." text="Verify a member, request renewal, replace a card or submit a complaint through the connected DPO administration system." image="/dpo-assets/home-hero-v2.jpg" />
+    <PageIntro eyebrow="Member Services" index="SERVICES" title={cmsTitle(page, 'Verification and support in one place.')} text={cmsText(page, 'Verify a member, request renewal, replace a card or submit a complaint through the connected DPO administration system.')} image={cmsImage(page, '/dpo-assets/home-hero-v2.jpg')} />
     <section className="bg-[#eeeae0] py-14 sm:py-20 lg:py-24">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <Tabs value={activeTab} onValueChange={changeTab} className="dpo-member-services gap-0 overflow-hidden rounded-2xl border border-[#c5d2ca] bg-white shadow-[0_40px_100px_rgba(5,30,18,.15),0_8px_24px_rgba(5,30,18,.06)]">
@@ -128,23 +130,23 @@ function ActiveServicePanel({ value }: { value: ServiceTabValue }) {
 }
 
 function VerifyMemberForm() {
-  const [identifier, setIdentifier] = useState('')
+  const [cnic, setCnic] = useState('')
   const [result, setResult] = useState<Record<string, unknown> | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
   const [loading, setLoading] = useState(false)
   const lookup = async () => {
-    if (!identifier.trim()) return setNotice({ type: 'error', title: 'Identifier required', text: 'Enter a membership number or masked CNIC.' })
+    if (!cnic.trim()) return setNotice({ type: 'error', title: 'CNIC required', text: 'Enter your CNIC or B-Form number.' })
     setLoading(true); setNotice(null)
     try {
-      const response = await publicApi<{ verified: boolean; member: Record<string, unknown> | null }>(`/public/verify/member?identifier=${encodeURIComponent(identifier)}`)
+      const response = await publicApi<{ verified: boolean; member: Record<string, unknown> | null }>(`/public/verify/member?identifier=${encodeURIComponent(cnic)}`)
       setResult(response.member)
       setNotice(response.verified ? { type: 'success', title: 'Active member verified', text: 'The membership record is active in the DPO system.' } : { type: 'error', title: 'Verification not confirmed', text: response.member ? 'A record exists but it is not active.' : 'No matching member record was found.' })
     } catch (error) { setNotice({ type: 'error', title: 'Lookup failed', text: error instanceof Error ? error.message : 'Member could not be verified.' }) }
     finally { setLoading(false) }
   }
-  return <ServicePanel icon={<BadgeCheck />} title="Verify an official DPO member" text="Enter the membership number printed on the card.">
+  return <ServicePanel icon={<BadgeCheck />} title="Verify an official DPO member" text="Enter your CNIC or B-Form number.">
     <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-      <Input value={identifier} onChange={(event) => setIdentifier(event.target.value)} onKeyDown={(e) => e.key === 'Enter' && void lookup()} placeholder="DPO-2026-1001" className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb] focus:border-[#0b7148] focus:ring-[#0b7148]/10" />
+      <Input value={cnic} onChange={(event) => setCnic(event.target.value)} onKeyDown={(e) => e.key === 'Enter' && void lookup()} placeholder="42101-1234567-1" className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb] focus:border-[#0b7148] focus:ring-[#0b7148]/10" />
       <Button disabled={loading} onClick={() => void lookup()} className="h-11 rounded-[6px] bg-[#052d1d] px-6 text-white shadow-[0_4px_12px_rgba(5,45,29,.2)] transition-all hover:bg-[#0c7148] hover:shadow-[0_6px_18px_rgba(5,45,29,.28)]">
         {loading ? <LoaderCircle className="animate-spin" /> : <Search className="size-4" />}
         <span className="ml-1.5">Verify</span>
@@ -198,7 +200,7 @@ function RenewalForm() {
 }
 
 function CardReplacementForm() {
-  const [membershipNumber, setMembershipNumber] = useState('')
+  const [cnic, setCnic] = useState('')
   const [reason, setReason] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [notice, setNotice] = useState<Notice>(null)
@@ -207,14 +209,14 @@ function CardReplacementForm() {
     event.preventDefault(); setLoading(true); setNotice(null)
     try {
       const documents = file ? [await fileToDocument(file, 'supporting-document', 'Card Replacement Evidence')] : []
-      const result = await postPublic<{ renewalNumber: string }>('/public/membership/card-regeneration', { membershipNumber, reason, documents })
+      const result = await postPublic<{ renewalNumber: string }>('/public/membership/card-regeneration', { identifier: cnic, reason, documents })
       setNotice({ type: 'success', title: 'Card request submitted', text: `Reference: ${result.renewalNumber}. The admin team will review the reason and any evidence.` })
-    } catch (error) { setNotice({ type: 'error', title: 'Request could not be submitted', text: error instanceof Error ? error.message : 'Please check the membership number.' }) }
+    } catch (error) { setNotice({ type: 'error', title: 'Request could not be submitted', text: error instanceof Error ? error.message : 'Please check the CNIC.' }) }
     finally { setLoading(false) }
   }
   return <ServicePanel icon={<CreditCard />} title="Replace a lost or damaged card" text="Submit a replacement request linked to an existing member record.">
     <form onSubmit={(event) => void submit(event)} className="grid gap-5">
-      <FormField label="Membership number"><Input required value={membershipNumber} onChange={(event) => setMembershipNumber(event.target.value)} placeholder="DPO-2026-1001" className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
+      <FormField label="CNIC or B-Form"><Input required value={cnic} onChange={(event) => setCnic(event.target.value)} placeholder="42101-1234567-1" className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
       <FormField label="Reason"><Textarea required value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain whether the card was lost, damaged or needs correction" className="min-h-28 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
       <FormField label="Evidence or supporting document"><Input type="file" accept="image/*,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb] py-2 file:mr-3 file:rounded file:border-0 file:bg-[#eaf4f0] file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-[#0b7148]" /></FormField>
       <Button disabled={loading} className="h-11 w-fit rounded-[6px] bg-[#052d1d] px-6 text-white shadow-[0_4px_12px_rgba(5,45,29,.2)] hover:bg-[#0c7148]">{loading ? <LoaderCircle className="animate-spin" /> : <CreditCard className="size-4" />}<span className="ml-1.5">Submit card request</span></Button>
@@ -283,7 +285,6 @@ function ComplaintForm() {
       <FormField label="Category"><Input name="category" required placeholder="Membership, conduct, card or other" className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
       <FormField label="Subject"><Input name="subject" required className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
       <FormField label="Complaint details" className="sm:col-span-2"><Textarea name="description" required className="min-h-32 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
-      <input type="hidden" name="priority" value="medium" />
       <div className="sm:col-span-2"><Button disabled={loading} className="h-11 rounded-[6px] bg-[#052d1d] px-6 text-white shadow-[0_4px_12px_rgba(5,45,29,.2)] hover:bg-[#0c7148]">{loading ? <LoaderCircle className="animate-spin" /> : <FileWarning className="size-4" />}<span className="ml-1.5">Submit complaint</span></Button></div>
     </form>
     <NoticeBlock notice={notice} />

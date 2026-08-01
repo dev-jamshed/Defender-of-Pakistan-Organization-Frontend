@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Admin from './pages/Admin';
 import About from './pages/About';
 import ActionPlan from './pages/ActionPlan';
@@ -72,6 +72,7 @@ function App() {
         <Route path="/legal" element={<Legal />} />
         <Route path="/legal/:slug" element={<Legal />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/login" element={<Navigate to="/admin" replace />} />
         <Route path="/admin/*" element={<Admin />} />
       </Routes>
     </BrowserRouter>

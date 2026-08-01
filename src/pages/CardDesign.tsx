@@ -5,13 +5,17 @@ import { Reveal, Stagger, StaggerItem } from '../components/public/Motion'
 import PublicLayout from '../components/public/PublicLayout'
 import { CtaBand, DetailList, PageIntro, SectionHeader } from '../components/public/PublicUi'
 import { MemberCard } from './Membership'
-import { cardDesign, organization } from '../content/publicContent'
+import { cardDesign } from '../content/publicContent'
+import { cmsImage, cmsList, cmsText, cmsTitle, organizationFromSettings, useCmsPage, usePublicSite } from '../lib/publicCms'
 
 export default function CardDesign() {
   const [side, setSide] = useState<'front' | 'back'>('front')
+  const page = useCmsPage('card-design')
+  const frontItems = cmsList(page, 'frontItems', cardDesign.front)
+  const backItems = cmsList(page, 'backItems', cardDesign.back)
   return (
     <PublicLayout>
-      <PageIntro eyebrow="Membership Identity" index="05" title="Designed for recognition and trust." text="A professional card system that balances clear public verification with responsible protection of member information." image="/dpo-assets/home-mission-v2.jpg" />
+      <PageIntro eyebrow="Membership Identity" index="05" title={cmsTitle(page, 'Designed for recognition and trust.')} text={cmsText(page, 'A professional card system that balances clear public verification with responsible protection of member information.')} image={cmsImage(page, '/dpo-assets/home-mission-v2.jpg')} />
 
       <section className="dpo-section dpo-section--paper">
         <div className="dpo-container dpo-card-lab">
@@ -24,7 +28,7 @@ export default function CardDesign() {
             </AnimatePresence>
             <span className="dpo-card-lab__hint"><RotateCw size={14} /> Switch between card sides</span>
           </div>
-          <div className="dpo-card-lab__copy"><SectionHeader eyebrow="Interactive Preview" title="Every element has a clear verification purpose." text="The sample uses the supplied DPO identity while keeping the final member information structured, legible and easy to verify." /><Stagger className="dpo-card-specs"><StaggerItem><article><CreditCard size={21} /><div><h3>Front side</h3><DetailList items={cardDesign.front} /></div></article></StaggerItem><StaggerItem><article><QrCode size={21} /><div><h3>Back side</h3><DetailList items={cardDesign.back} /></div></article></StaggerItem></Stagger></div>
+          <div className="dpo-card-lab__copy"><SectionHeader eyebrow="Interactive Preview" title={cmsTitle(page, 'Every element has a clear verification purpose.')} text={cmsText(page, 'The sample uses the supplied DPO identity while keeping the final member information structured, legible and easy to verify.')} /><Stagger className="dpo-card-specs"><StaggerItem><article><CreditCard size={21} /><div><h3>Front side</h3><DetailList items={frontItems} /></div></article></StaggerItem><StaggerItem><article><QrCode size={21} /><div><h3>Back side</h3><DetailList items={backItems} /></div></article></StaggerItem></Stagger></div>
         </div>
       </section>
 
@@ -42,5 +46,7 @@ export default function CardDesign() {
 }
 
 function MemberCardBack() {
-  return <div className="dpo-member-card dpo-member-card--back"><div className="dpo-member-card__flag" /><header><img src="/dpo-assets/logo-transparent.png" alt="" /><div><b>Defenders of Pakistan</b><span>Official member identity</span></div></header><div className="dpo-member-card__back-body"><div className="dpo-faux-qr"><i /><i /><i /><i /><i /><i /><i /><i /><i /></div><div><span>Verify membership</span><b>defendersofpakistan.org/verify</b><span>Valid through</span><b>31 December 2027</b><span>Emergency contact</span><b>{organization.phone}</b></div></div><footer><span>This card remains property of DPO.</span><ShieldCheck size={20} /></footer></div>
+  const site = usePublicSite()
+  const org = organizationFromSettings(site.settings)
+  return <div className="dpo-member-card dpo-member-card--back"><div className="dpo-member-card__flag" /><header><img src="/dpo-assets/logo-transparent.png" alt="" /><div><b>{org.name}</b><span>Official member identity</span></div></header><div className="dpo-member-card__back-body"><div className="dpo-faux-qr"><i /><i /><i /><i /><i /><i /><i /><i /><i /></div><div><span>Verify membership</span><b>defendersofpakistan.org/verify</b><span>Valid through</span><b>31 December 2027</b><span>Emergency contact</span><b>{org.phone}</b></div></div><footer><span>This card remains property of DPO.</span><ShieldCheck size={20} /></footer></div>
 }

@@ -5,14 +5,29 @@ import { Stagger, StaggerItem, Reveal } from '../components/public/Motion'
 import PublicLayout from '../components/public/PublicLayout'
 import { PageIntro } from '../components/public/PublicUi'
 import { galleryItems } from '../content/publicContent'
+import { assetPath, cmsImage, cmsText, cmsTitle, text, useCmsPage, usePublicSite } from '../lib/publicCms'
 
 export default function Gallery() {
-  const categories = ['All', ...Array.from(new Set(galleryItems.map((item) => item.category)))]
+  const site = usePublicSite()
+  const page = useCmsPage('gallery')
+  const gallery = site.gallery.length ? site.gallery.flatMap((album) => {
+    const images = Array.isArray(album.images) ? album.images : [album.coverImage ?? album.image].filter(Boolean)
+    return images.map((image, index) => ({
+      title: text(album.titleEnglish) || text(album.title) || 'Gallery Image',
+      category: text(album.category) || 'Gallery',
+      date: text(album.eventDate) || text(album.createdAt) || '',
+      location: text(album.location) || 'DPO',
+      image: assetPath(image),
+      caption: text(album.caption) || text(album.description) || text(album.titleEnglish) || 'Published from admin gallery.',
+      key: `${album.id}-${index}`,
+    }))
+  }) : galleryItems.map((item) => ({ ...item, key: item.title }))
+  const categories = ['All', ...Array.from(new Set(gallery.map((item) => item.category)))]
   const [category, setCategory] = useState('All')
   
   // Modal State
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
-  const items = useMemo(() => category === 'All' ? galleryItems : galleryItems.filter((item) => item.category === category), [category])
+  const items = useMemo(() => category === 'All' ? gallery : gallery.filter((item) => item.category === category), [category, gallery])
 
   const openLightbox = (index: number) => setSelectedIndex(index)
   const closeLightbox = () => setSelectedIndex(null)
@@ -43,7 +58,7 @@ export default function Gallery() {
 
   return (
     <PublicLayout>
-      <PageIntro eyebrow="Media Gallery" index="06" title="Moments of unity, action and service." text="A structured public archive for DPO events, campaigns, programs and official visual references." image="/dpo-assets/home-hero-v2.jpg" />
+      <PageIntro eyebrow="Media Gallery" index="06" title={cmsTitle(page, 'Moments of unity, action and service.')} text={cmsText(page, 'A structured public archive for DPO events, campaigns, programs and official visual references.')} image={cmsImage(page, '/dpo-assets/home-hero-v2.jpg')} />
       
       <section className="bg-[#eeeae0] py-16 sm:py-24">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -92,7 +107,7 @@ export default function Gallery() {
                   animate={{ opacity: 1, scale: 1, y: 0 }} 
                   exit={{ opacity: 0, scale: .94, y: -20 }} 
                   transition={{ duration: .35 }} 
-                  key={item.title}
+                  key={item.key}
                   className="group relative mb-6 break-inside-avoid overflow-hidden rounded-2xl bg-white shadow-[0_8px_24px_rgba(5,30,18,.06)] border border-[#d4ddd7] cursor-pointer"
                   onClick={() => openLightbox(index)}
                 >

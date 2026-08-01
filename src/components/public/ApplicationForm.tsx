@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
+  Banknote,
   Briefcase,
   Check,
   Clock3,
@@ -36,8 +37,7 @@ type FileState = Record<string, File | null>
 type DesignationOption = {
   id: string
   designation: string
-  wing?: string | null
-  fee?: number | null
+  amount?: number | null
   validityMonths?: number | null
 }
 
@@ -48,12 +48,22 @@ type ApplicationReceipt = {
   createdAt: string
 }
 
+type PaymentInstructions = {
+  title: string
+  accountTitle?: string | null
+  bankName?: string | null
+  accountNumber?: string | null
+  iban?: string | null
+  note?: string | null
+}
+
 const provinceOptions = ['Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan', 'Islamabad Capital Territory', 'Azad Jammu and Kashmir', 'Gilgit Baltistan']
 
 const initialForm: FormState = {
   membershipType: '',
   designation: '',
   membershipNumber: '',
+  memberCnic: '',
   wing: 'General',
   name: '',
   fatherName: '',
@@ -154,7 +164,7 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
   }
 
   if (receipt) {
-    return <ApplicationSuccess mode={mode} receipt={receipt} phone={form.phone} />
+    return <ApplicationSuccess mode={mode} receipt={receipt} cnic={form.cnic} />
   }
 
   return (
@@ -262,7 +272,9 @@ function MembershipChoice({ value, onChange }: { value: string; onChange: (value
 }
 
 function DesignationChoice({ form, update, options, loading }: { form: FormState; update: (key: string, value: string) => void; options: DesignationOption[]; loading: boolean }) {
-  return <div className="grid gap-5 sm:grid-cols-2 mt-4"><Field label="Requested designation" required className="sm:col-span-2"><Select value={form.designation || null} onValueChange={(value) => update('designation', String(value ?? ''))} disabled={loading}><SelectTrigger className="h-12 w-full rounded-lg border-[#cbd3ce] bg-white px-3 focus:ring-[#0c7148]"><SelectValue>{form.designation || (loading ? 'Loading designations' : 'Choose a designation')}</SelectValue></SelectTrigger><SelectContent>{options.map((item) => <SelectItem value={item.designation} key={item.id}>{item.designation}</SelectItem>)}</SelectContent></Select></Field><Field label="Existing membership number"><Input value={form.membershipNumber} onChange={(event) => update('membershipNumber', event.target.value)} placeholder="DPO-2026-1001" className="h-12 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field><Field label="Wing"><Select value={form.wing} onValueChange={(value) => update('wing', String(value ?? 'General'))}><SelectTrigger className="h-12 w-full rounded-lg border-[#cbd3ce] focus:ring-[#0c7148]"><SelectValue>{form.wing}</SelectValue></SelectTrigger><SelectContent>{['General', 'Youth Wing', 'Women Wing', 'Welfare', 'Membership', 'Media'].map((wing) => <SelectItem value={wing} key={wing}>{wing}</SelectItem>)}</SelectContent></Select></Field><Field label="Relevant experience" className="sm:col-span-2"><Textarea value={form.experience} onChange={(event) => update('experience', event.target.value)} placeholder="Briefly describe relevant service or leadership experience" className="min-h-28 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field><Field label="Reason for applying" className="sm:col-span-2"><Textarea value={form.reason} onChange={(event) => update('reason', event.target.value)} placeholder="Why do you want to serve in this role?" className="min-h-28 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field></div>
+  const selected = options.find((item) => item.designation === form.designation)
+
+  return <div className="grid gap-5 sm:grid-cols-2 mt-4"><Field label="Requested designation" required className="sm:col-span-2"><Select value={form.designation || null} onValueChange={(value) => update('designation', String(value ?? ''))} disabled={loading}><SelectTrigger className="h-12 w-full rounded-lg border-[#cbd3ce] bg-white px-3 focus:ring-[#0c7148]"><SelectValue>{form.designation || (loading ? 'Loading designations' : 'Choose a designation')}</SelectValue></SelectTrigger><SelectContent>{options.map((item) => <SelectItem value={item.designation} key={item.id}>{item.designation}</SelectItem>)}</SelectContent></Select>{selected?.amount ? <span className="text-[12px] leading-5 text-[#64706a]">Amount: PKR {Number(selected.amount).toLocaleString()}</span> : null}</Field><Field label="Your CNIC"><Input value={form.memberCnic} onChange={(event) => update('memberCnic', event.target.value)} placeholder="42101-1234567-1" className="h-12 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field><Field label="Wing"><Select value={form.wing} onValueChange={(value) => update('wing', String(value ?? 'General'))}><SelectTrigger className="h-12 w-full rounded-lg border-[#cbd3ce] focus:ring-[#0c7148]"><SelectValue>{form.wing}</SelectValue></SelectTrigger><SelectContent>{['General', 'Youth Wing', 'Women Wing', 'Welfare', 'Membership', 'Media'].map((wing) => <SelectItem value={wing} key={wing}>{wing}</SelectItem>)}</SelectContent></Select></Field><Field label="Relevant experience" className="sm:col-span-2"><Textarea value={form.experience} onChange={(event) => update('experience', event.target.value)} placeholder="Briefly describe relevant service or leadership experience" className="min-h-28 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field><Field label="Reason for applying" className="sm:col-span-2"><Textarea value={form.reason} onChange={(event) => update('reason', event.target.value)} placeholder="Why do you want to serve in this role?" className="min-h-28 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field></div>
 }
 
 function PersonalDetails({ form, update }: { form: FormState; update: (key: string, value: string) => void }) {
@@ -302,8 +314,10 @@ function Field({ label, required, hint, className = '', children }: { label: str
   return <div className={`grid gap-2 ${className}`}><Label className="text-[13px] font-semibold text-[#26302b]">{label}{required && <span className="ml-1 text-[#a34e32]">*</span>}</Label>{children}{hint && <span className="text-[11px] text-[#7a847f]">{hint}</span>}</div>
 }
 
-function ApplicationSuccess({ mode, receipt, phone }: { mode: ApplicationMode; receipt: ApplicationReceipt; phone: string }) {
+function ApplicationSuccess({ mode, receipt, cnic }: { mode: ApplicationMode; receipt: ApplicationReceipt; cnic: string }) {
   const [copied, setCopied] = useState(false)
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInstructions | null>(null)
+  const paymentPending = receipt.paymentStatus?.toLowerCase() === 'pending'
   const typeLabel = mode === 'membership' ? 'Membership' : 'Designation'
   const submittedDate = receipt.createdAt ? new Date(receipt.createdAt).toLocaleString() : 'Submitted just now'
   const copyNumber = async () => {
@@ -317,6 +331,13 @@ function ApplicationSuccess({ mode, receipt, phone }: { mode: ApplicationMode; r
     { title: 'Payment confirmation', text: 'Any applicable fee is verified before a final decision.' },
     { title: 'Final decision', text: 'Track this application to see approval or follow-up requests.' },
   ]
+
+  useEffect(() => {
+    if (!paymentPending) return
+    publicApi<PaymentInstructions>('/public/payment-instructions')
+      .then(setPaymentInfo)
+      .catch(() => setPaymentInfo(null))
+  }, [paymentPending])
 
   return (
     <div className="bg-[#f7f9f8] min-h-screen">
@@ -332,14 +353,27 @@ function ApplicationSuccess({ mode, receipt, phone }: { mode: ApplicationMode; r
               <div className="p-6 sm:p-10 lg:border-r lg:border-[#e2e8e4] lg:p-14">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#b38d34]">{typeLabel} application</span>
                 <h1 className="mt-3 max-w-2xl font-[Outfit] text-3xl font-bold leading-tight text-[#052d1d] sm:text-4xl">Your application is ready for administrative review.</h1>
-                <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[#64706a]">Save the reference below. You will need it with your registered phone number to check progress.</p>
+                <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-[#64706a]">Save the reference below. You will need it with your CNIC to check progress.</p>
 
                 <div className="mt-10 rounded-xl border border-[#d2dcd7] bg-[#f9fbfb] p-6 sm:p-8">
                   <div className="flex items-start justify-between gap-4"><div className="min-w-0"><span className="text-[10px] font-bold uppercase tracking-wider text-[#77817c]">Application number</span><strong className="mt-2 block break-all font-[Outfit] text-2xl font-bold text-[#052d1d] sm:text-3xl">{receipt.applicationNumber}</strong></div><button type="button" onClick={() => void copyNumber()} className="grid size-12 shrink-0 place-items-center rounded-lg border border-[#bdcbc2] bg-white text-[#0b7148] transition hover:border-[#0b7148] hover:bg-[#edf6f1] shadow-sm" aria-label="Copy application number" title="Copy application number">{copied ? <Check className="size-5" /> : <Copy className="size-5" />}</button></div>
                   <div className="mt-6 flex flex-wrap gap-2 border-t border-[#d8ddd9] pt-5"><span className="inline-flex items-center gap-2 rounded-full bg-[#e7f4ec] px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#0b7148]"><Clock3 className="size-3.5" /> Status: {receipt.status}</span><span className="inline-flex items-center gap-2 rounded-full bg-[#fcf5e3] px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#b38d34]">Payment: {receipt.paymentStatus}</span></div>
                 </div>
 
-                <div className="mt-8 flex flex-col gap-4 sm:flex-row"><Link to="/application-status" state={{ applicationNumber: receipt.applicationNumber, phone }} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#052d1d] px-8 text-[15px] font-bold !text-white shadow-[0_10px_22px_rgba(5,45,29,.16)] transition hover:bg-[#0b7148]">Track application <ArrowRight className="size-4" /></Link><Link to={mode === 'membership' ? '/membership' : '/designations'} className="inline-flex h-12 items-center justify-center rounded-lg border border-[#c7d1cb] bg-white px-8 text-[15px] font-semibold text-[#39423e] transition hover:border-[#0b7148] hover:text-[#0b7148]">Back to details</Link></div>
+                {paymentPending && paymentInfo && (
+                  <div className="mt-6 rounded-xl border border-[#d2dcd7] bg-white p-6 sm:p-8">
+                    <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-lg bg-[#fcf5e3] text-[#9b7423]"><Banknote className="size-5" /></span><div><span className="text-[10px] font-bold uppercase tracking-wider text-[#9b7423]">Manual payment</span><h2 className="font-[Outfit] text-xl font-bold text-[#052d1d]">Transfer fee to DPO account</h2></div></div>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <PaymentInfoRow label="Account title" value={paymentInfo.accountTitle} />
+                      <PaymentInfoRow label="Bank name" value={paymentInfo.bankName} />
+                      <PaymentInfoRow label="Account number" value={paymentInfo.accountNumber} />
+                      <PaymentInfoRow label="IBAN" value={paymentInfo.iban} />
+                    </div>
+                    {paymentInfo.note && <p className="mt-5 rounded-lg bg-[#f7f9f8] p-4 text-[13px] leading-6 text-[#64706a]">{paymentInfo.note} Use application number <b className="text-[#052d1d]">{receipt.applicationNumber}</b> as payment reference.</p>}
+                  </div>
+                )}
+
+                <div className="mt-8 flex flex-col gap-4 sm:flex-row"><Link to="/application-status" state={{ cnic }} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#052d1d] px-8 text-[15px] font-bold !text-white shadow-[0_10px_22px_rgba(5,45,29,.16)] transition hover:bg-[#0b7148]">Track application <ArrowRight className="size-4" /></Link><Link to={mode === 'membership' ? '/membership' : '/designations'} className="inline-flex h-12 items-center justify-center rounded-lg border border-[#c7d1cb] bg-white px-8 text-[15px] font-semibold text-[#39423e] transition hover:border-[#0b7148] hover:text-[#0b7148]">Back to details</Link></div>
                 <div className="mt-8 flex items-start gap-3 rounded-lg bg-[#f4f7f5] p-4 text-[12px] leading-6 text-[#64706a]"><ShieldCheck className="mt-1 size-5 shrink-0 text-[#0b7148]" />Your CNIC remains masked in public application records. Uploaded files are available only to authorized reviewers.</div>
               </div>
 
@@ -355,6 +389,11 @@ function ApplicationSuccess({ mode, receipt, phone }: { mode: ApplicationMode; r
       </section>
     </div>
   )
+}
+
+function PaymentInfoRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null
+  return <div className="rounded-lg border border-[#e2e8e4] bg-[#fafcfb] px-4 py-3"><span className="text-[9px] font-bold uppercase tracking-wider text-[#7b8680]">{label}</span><b className="mt-1 block break-all text-sm text-[#052d1d]">{value}</b></div>
 }
 
 function stepTitle(mode: ApplicationMode, step: number) {
