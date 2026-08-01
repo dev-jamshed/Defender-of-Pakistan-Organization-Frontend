@@ -3,15 +3,23 @@ import {
   ArrowRight,
   BadgeCheck,
   BookOpen,
+  CalendarDays,
   CheckCircle2,
   CreditCard,
+  Download,
+  FileText,
   Flag,
   GraduationCap,
   HandHeart,
   HeartHandshake,
+  Image,
+  PackageCheck,
   ShieldCheck,
   Shield,
+  ShoppingCart,
   Sparkles,
+  Star,
+  Truck,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -21,6 +29,8 @@ import { Reveal, Stagger, StaggerItem, TextReveal } from '../components/public/M
 import PublicLayout from '../components/public/PublicLayout'
 import { CtaBand, SectionHeader } from '../components/public/PublicUi'
 import { about, actionPlan, brand, coreValues, hero, quickStats } from '../content/publicContent'
+import joinMissionImage from '../assets/join_mission.png'
+import merchandiseImage from '../assets/merch.png'
 import { cmsImage, cmsPairs, cmsText, cmsTitle, cmsValue, organizationFromSettings, settingValue, useCmsPage, usePublicSite } from '../lib/publicCms'
 
 const pillars = [
@@ -118,6 +128,8 @@ export default function Home() {
         </div>
       </section>
 
+      
+
       <section className="dpo-pillars" id="pillars">
         <div className="dpo-container dpo-pillars__grid">
           {pillarItems.map(({ title, text }, index) => {
@@ -127,6 +139,59 @@ export default function Home() {
               <span>0{index + 1}</span><Icon size={21} /><div><h3>{title}</h3><p>{text}</p></div>
             </motion.article>
           )})}
+        </div>
+      </section>
+
+      <section className="dpo-home-portals" aria-label="Membership, merchandise and quick access">
+        <div className="dpo-home-portals__grid">
+          <article className="dpo-portal-card dpo-portal-card--mission">
+            <img src={joinMissionImage} alt="People celebrating Pakistan with the national flag" />
+            <div className="dpo-portal-card__shade" />
+            <div className="dpo-portal-card__content">
+              <span>Join our mission</span>
+              <h2>Become a Member</h2>
+              <p>Be a part of a patriotic movement for positive change. Together we can build a better Pakistan.</p>
+              <Link className="dpo-portal-button" to="/apply/membership">Join now <UserPlus size={19} /></Link>
+            </div>
+            <div className="dpo-portal-features dpo-portal-features--mission">
+              <div><CreditCard size={21} /><span>Official<br />Membership Card</span></div>
+              <div><Star size={21} /><span>Priority<br />Invitations</span></div>
+              <div><GraduationCap size={21} /><span>Training &amp;<br />Workshops</span></div>
+              <div><HandHeart size={21} /><span>Volunteer<br />Opportunities</span></div>
+            </div>
+          </article>
+
+          <article className="dpo-portal-card dpo-portal-card--merchandise">
+            <div className="dpo-portal-card__heading">
+              <h2>Official Merchandise</h2>
+              <p>Wear your pride. Represent your nation.</p>
+            </div>
+            <img src={merchandiseImage} alt="Official green polo shirt and cap" />
+            <Link className="dpo-portal-button dpo-portal-button--shop" to="/contact"><ShoppingCart size={18} /> Shop now <ArrowRight size={18} /></Link>
+            <div className="dpo-portal-features dpo-portal-features--merchandise">
+              <div><PackageCheck size={20} /><span>Premium<br />Quality</span></div>
+              <div><Star size={20} /><span>Official<br />Logo</span></div>
+              <div><Truck size={20} /><span>Nationwide<br />Delivery</span></div>
+              <div><HandHeart size={20} /><span>Support<br />A Cause</span></div>
+            </div>
+          </article>
+
+          <article className="dpo-portal-card dpo-portal-card--access">
+            <span className="dpo-portal-card--access__eyebrow">Quick Access</span>
+            <h2>All in one place.</h2>
+            <nav className="dpo-quick-access" aria-label="Quick access links">
+              <Link to="/membership"><Users size={26} /><span>Membership</span></Link>
+              <Link to="/contact"><HandHeart size={26} /><span>Donate</span></Link>
+              <Link to="/legal"><Download size={26} /><span>Downloads</span></Link>
+              <Link to="/action-plan"><CalendarDays size={26} /><span>Events</span></Link>
+              <Link to="/gallery"><Image size={26} /><span>Gallery</span></Link>
+              <Link to="/legal"><FileText size={26} /><span>Documents</span></Link>
+            </nav>
+            <blockquote>
+              <span aria-hidden="true">"</span>
+              <p>Together we can build a stronger,<br />united and progressive Pakistan.</p>
+            </blockquote>
+          </article>
         </div>
       </section>
 

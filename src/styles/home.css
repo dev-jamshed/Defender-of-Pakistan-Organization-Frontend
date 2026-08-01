@@ -929,6 +929,352 @@
 @keyframes dpo-float { 50% { transform: translateY(-10px); } }
 @keyframes dpo-bounce { 50% { transform: translateY(5px); } }
 
+/* ─── Portals Section ────────────────────────────────────────────── */
+.dpo-home-portals {
+  position: relative;
+  z-index: 5;
+  padding: 0 16px 20px;
+  background: #eef0eb;
+}
+
+.dpo-home-portals__grid {
+  width: min(100%, 1960px);
+  display: grid;
+  grid-template-columns: 1.1fr 0.82fr 1.08fr;
+  gap: 16px;
+  margin-inline: auto;
+  padding-top: 70px;
+  margin-bottom: -20px;
+}
+
+/* ─── Base Card ───────────────────────────────────────────────────── */
+.dpo-portal-card {
+  position: relative;
+  min-width: 0;
+  min-height: 340px;
+  overflow: hidden;
+  border: 1px solid #d6ddd7;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 4px 6px rgba(4, 37, 24, .04), 0 12px 32px rgba(4, 37, 24, .08);
+  transition: box-shadow .28s ease, transform .28s ease;
+}
+
+.dpo-portal-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 12px rgba(4, 37, 24, .06), 0 24px 48px rgba(4, 37, 24, .13);
+}
+
+.dpo-portal-card h2,
+.dpo-portal-card p {
+  margin: 0;
+}
+
+/* ─── Mission Card ────────────────────────────────────────────────── */
+.dpo-portal-card--mission > img,
+.dpo-portal-card--mission > .dpo-portal-card__shade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: calc(100% - 86px);
+}
+
+.dpo-portal-card--mission > img {
+  object-fit: cover;
+  object-position: 68% 53%;
+}
+
+.dpo-portal-card__shade {
+  background: linear-gradient(
+    90deg,
+    #fff 0%,
+    rgba(255, 255, 255, .97) 32%,
+    rgba(255, 255, 255, .80) 52%,
+    rgba(255, 255, 255, .06) 82%
+  );
+}
+
+.dpo-portal-card__content {
+  position: relative;
+  z-index: 2;
+  width: 57%;
+  padding: 26px 0 100px 28px;
+}
+
+.dpo-portal-card__content > span {
+  display: inline-block;
+  padding: 3px 10px 4px;
+  border-radius: 4px;
+  color: var(--dpo-green);
+  background: rgba(12, 113, 72, .08);
+  font-family: var(--dpo-display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.dpo-portal-card__content h2,
+.dpo-portal-card__heading h2,
+.dpo-portal-card--access > h2 {
+  color: var(--dpo-forest);
+  font-family: var(--dpo-display);
+  font-weight: 800;
+  line-height: 1.04;
+  text-transform: uppercase;
+}
+
+.dpo-portal-card__content h2 {
+  margin-top: 8px;
+  font-size: 26px;
+}
+
+.dpo-portal-card__content p {
+  max-width: 340px;
+  margin-top: 10px;
+  color: #4a534d;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+/* ─── Portal CTA Button ───────────────────────────────────────────── */
+.dpo-portal-button {
+  min-width: 160px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 20px;
+  border: 1px solid #064c34;
+  border-radius: 6px;
+  color: #fff !important;
+  background: linear-gradient(160deg, #0c6641, #043d29 90%);
+  box-shadow: 0 6px 16px rgba(4, 61, 41, .22);
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: transform .22s ease, box-shadow .22s ease, background .22s ease;
+}
+
+.dpo-portal-button:hover {
+  background: linear-gradient(160deg, #0e7849, #065035 90%);
+  box-shadow: 0 12px 26px rgba(4, 61, 41, .28);
+  transform: translateY(-2px);
+}
+
+/* ─── Feature Strip ───────────────────────────────────────────────── */
+.dpo-portal-features {
+  position: absolute;
+  z-index: 3;
+  right: 14px;
+  bottom: 12px;
+  left: 14px;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #d8e0d9;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 3px 10px rgba(5, 45, 29, .06), 0 1px 3px rgba(5, 45, 29, .04);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.dpo-portal-features > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-right: 1px solid #e2e8e3;
+  color: #2b3530;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.dpo-portal-features > div:last-child {
+  border-right: 0;
+}
+
+.dpo-portal-features svg {
+  flex: 0 0 auto;
+  color: var(--dpo-green);
+}
+
+/* ─── Merchandise Card ────────────────────────────────────────────── */
+.dpo-portal-card--merchandise > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: calc(100% - 62px);
+  object-fit: cover;
+  object-position: center 60%;
+}
+
+.dpo-portal-card__heading {
+  position: relative;
+  z-index: 2;
+  padding: 16px 20px 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .98) 0%, rgba(255, 255, 255, .85) 68%, transparent 100%);
+  text-align: center;
+}
+
+.dpo-portal-card__heading h2 {
+  font-size: 23px;
+}
+
+.dpo-portal-card__heading p {
+  margin-top: 4px;
+  color: #505950;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.dpo-portal-button--shop {
+  position: absolute;
+  z-index: 4;
+  bottom: 70px;
+  left: 50%;
+  min-width: 188px;
+  min-height: 40px;
+  margin: 0;
+  transform: translateX(-50%);
+}
+
+.dpo-portal-button--shop:hover {
+  transform: translate(-50%, -2px);
+}
+
+.dpo-portal-features--merchandise {
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  min-height: 56px;
+}
+
+.dpo-portal-features--merchandise > div {
+  gap: 5px;
+  padding-inline: 5px;
+  font-size: 8.5px;
+}
+
+/* ─── Quick Access Card ───────────────────────────────────────────── */
+.dpo-portal-card--access {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 18px 16px 14px;
+}
+
+.dpo-portal-card--access__eyebrow {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 3px 10px 4px;
+  border-radius: 4px;
+  color: var(--dpo-green);
+  background: rgba(12, 113, 72, .08);
+  font-family: var(--dpo-display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.dpo-portal-card--access > h2 {
+  margin-bottom: 12px;
+  font-size: 20px;
+  letter-spacing: -.01em;
+}
+
+.dpo-quick-access {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dpo-quick-access a {
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #d8e0d9;
+  border-radius: 10px;
+  color: var(--dpo-forest);
+  background: linear-gradient(160deg, #fff, #f4f7f4);
+  box-shadow: 0 2px 6px rgba(5, 45, 29, .05), 0 6px 14px rgba(5, 45, 29, .06);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  transition: color .22s ease, background .22s ease, transform .22s ease, box-shadow .22s ease;
+}
+
+.dpo-quick-access a:hover {
+  color: #fff;
+  background: linear-gradient(160deg, var(--dpo-green), var(--dpo-forest));
+  border-color: transparent;
+  box-shadow: 0 8px 20px rgba(5, 45, 29, .18);
+  transform: translateY(-3px);
+}
+
+/* ─── Blockquote ──────────────────────────────────────────────────── */
+.dpo-portal-card--access blockquote {
+  position: relative;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow: hidden;
+  margin: 14px 0 0;
+  padding: 14px 22px;
+  border-radius: 14px;
+  color: #fff;
+  background:
+    linear-gradient(105deg, rgba(3, 51, 33, .97) 0%, rgba(5, 80, 50, .82) 100%),
+    url('../assets/hero-bg.png') center 61% / cover;
+  box-shadow: 0 6px 20px rgba(3, 51, 33, .2);
+}
+
+.dpo-portal-card--access blockquote::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 20% 50%, rgba(114, 169, 66, .12), transparent 60%);
+  pointer-events: none;
+}
+
+.dpo-portal-card--access blockquote > span {
+  height: 44px;
+  flex: 0 0 auto;
+  color: var(--dpo-gold);
+  font-family: Georgia, serif;
+  font-size: 52px;
+  font-weight: 800;
+  line-height: 1;
+  opacity: .85;
+}
+
+.dpo-portal-card--access blockquote p {
+  position: relative;
+  z-index: 1;
+  font-family: var(--dpo-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: .01em;
+}
+
 .dpo-pillars {
   position: relative;
   z-index: 4;
@@ -3707,6 +4053,18 @@
     padding: 22px 18px;
   }
 
+  .dpo-home-portals__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dpo-portal-card--access {
+    grid-column: 1 / -1;
+  }
+
+  .dpo-portal-card--access blockquote {
+    margin-top: 14px;
+  }
+
   .dpo-pillars__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -3780,6 +4138,18 @@
     max-width: 650px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-self: start;
+  }
+
+  .dpo-home-portals {
+    padding-inline: 12px;
+  }
+
+  .dpo-home-portals__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dpo-portal-card--access {
+    grid-column: auto;
   }
 
   .dpo-home-about,
@@ -3954,6 +4324,82 @@
 
   .dpo-hero-values {
     grid-template-columns: 1fr;
+  }
+
+  .dpo-home-portals {
+    padding: 10px 8px 12px;
+  }
+
+  .dpo-portal-card {
+    min-height: 390px;
+    border-radius: 14px;
+  }
+
+  .dpo-portal-card__content {
+    width: 72%;
+    padding-left: 20px;
+  }
+
+  .dpo-portal-card__content h2 {
+    font-size: 23px;
+  }
+
+  .dpo-portal-card__content > span {
+    font-size: 14px;
+  }
+
+  .dpo-portal-card__content p {
+    font-size: 12px;
+  }
+
+  .dpo-portal-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dpo-portal-features > div:nth-child(2) {
+    border-right: 0;
+  }
+
+  .dpo-portal-features > div:nth-child(-n + 2) {
+    border-bottom: 1px solid #e0e5e1;
+  }
+
+  .dpo-portal-card--merchandise {
+    min-height: 410px;
+  }
+
+  .dpo-portal-card--merchandise > img {
+    height: calc(100% - 102px);
+  }
+
+  .dpo-portal-button--shop {
+    bottom: 112px;
+  }
+
+  .dpo-portal-features--merchandise {
+    min-height: 96px;
+  }
+
+  .dpo-portal-card--access {
+    min-height: 430px;
+    padding: 16px 12px 12px;
+  }
+
+  .dpo-quick-access {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dpo-quick-access a {
+    min-height: 72px;
+    font-size: 9px;
+  }
+
+  .dpo-portal-card--access blockquote {
+    padding-inline: 16px;
+  }
+
+  .dpo-portal-card--access blockquote p {
+    font-size: 13px;
   }
 
   .dpo-hero-trust {
