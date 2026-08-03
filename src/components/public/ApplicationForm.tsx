@@ -4,19 +4,15 @@ import {
   ArrowRight,
   BadgeCheck,
   Banknote,
-  Briefcase,
   Check,
   Clock3,
   Copy,
   FileCheck2,
   FileImage,
-  HeartHandshake,
   LoaderCircle,
   LockKeyhole,
   ShieldCheck,
-  Star,
   Upload,
-  UserRound,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -28,7 +24,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { fileToDocument, postPublic, publicApi } from '@/lib/publicApi'
-import { membership } from '../../content/publicContent'
 
 type ApplicationMode = 'membership' | 'designation'
 type FormState = Record<string, string>
@@ -60,7 +55,7 @@ type PaymentInstructions = {
 const provinceOptions = ['Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan', 'Islamabad Capital Territory', 'Azad Jammu and Kashmir', 'Gilgit Baltistan']
 
 const initialForm: FormState = {
-  membershipType: '',
+  membershipType: 'Member',
   designation: '',
   membershipNumber: '',
   memberCnic: '',
@@ -99,7 +94,7 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
   const [receipt, setReceipt] = useState<ApplicationReceipt | null>(null)
 
   const steps = useMemo(() => mode === 'membership'
-    ? ['Membership', 'Personal details', 'Address', 'Documents']
+    ? ['Personal details', 'Address', 'Documents']
     : ['Role', 'Personal details', 'Location', 'Documents'], [mode])
 
   useEffect(() => {
@@ -114,13 +109,12 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
 
   const validateStep = () => {
     const missing = (fields: string[]) => fields.some((field) => !form[field]?.trim())
-    if (step === 0 && mode === 'membership' && !form.membershipType) return 'Choose a membership type to continue.'
     if (step === 0 && mode === 'designation' && !form.designation) return 'Choose a designation to continue.'
-    if (step === 1 && missing(['name', 'fatherName', 'cnic', 'phone', 'email'])) return 'Complete all required personal details.'
+    if (step === (mode === 'membership' ? 0 : 1) && missing(['name', 'fatherName', 'cnic', 'phone', 'email'])) return 'Complete all required personal details.'
     if (form.cnic && !/^\d{5}-?\d{7}-?\d$/.test(form.cnic)) return 'Enter CNIC in 42101-1234567-1 format.'
-    if (step === 2 && missing(['province', 'district', 'area', 'address'])) return 'Complete the required location details.'
-    if (step === 3 && Object.values(files).some((file) => !file)) return 'Upload CNIC front, CNIC back and a profile photo.'
-    if (step === 3 && !termsAccepted) return 'Accept the terms and privacy policy before submitting.'
+    if (step === (mode === 'membership' ? 1 : 2) && missing(['province', 'district', 'area', 'address'])) return 'Complete the required location details.'
+    if (step === (mode === 'membership' ? 2 : 3) && Object.values(files).some((file) => !file)) return 'Upload CNIC front, CNIC back and a profile photo.'
+    if (step === (mode === 'membership' ? 2 : 3) && !termsAccepted) return 'Accept the terms and privacy policy before submitting.'
     return ''
   }
 
@@ -152,7 +146,7 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
         ? '/public/membership/applications'
         : '/public/designation/applications'
       const payload = mode === 'membership'
-        ? { ...form, termsAccepted, documents }
+        ? { ...form, membershipType: 'Member', termsAccepted, documents }
         : { ...form, applicant: form.name, termsAccepted, documents }
       const result = await postPublic<ApplicationReceipt>(endpoint, payload)
       setReceipt(result)
@@ -208,12 +202,20 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
             {error && <Alert variant="destructive" className="mb-6 rounded-lg border-red-200 bg-red-50 px-4 py-3"><ShieldCheck className="size-4" /><AlertTitle>Check the information</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
             <AnimatePresence mode="wait">
               <motion.div key={`${mode}-${step}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: .3, ease: [0.22, 1, 0.36, 1] }}>
-                {step === 0 && (mode === 'membership'
-                  ? <MembershipChoice value={form.membershipType} onChange={(value) => update('membershipType', value)} />
-                  : <DesignationChoice form={form} update={update} options={designations} loading={loadingOptions} />)}
-                {step === 1 && <PersonalDetails form={form} update={update} />}
-                {step === 2 && <LocationDetails form={form} update={update} mode={mode} />}
-                {step === 3 && <DocumentsStep files={files} setFiles={setFiles} accepted={termsAccepted} setAccepted={setTermsAccepted} />}
+                {mode === 'membership' ? (
+                  <>
+                    {step === 0 && <PersonalDetails form={form} update={update} />}
+                    {step === 1 && <LocationDetails form={form} update={update} mode={mode} />}
+                    {step === 2 && <DocumentsStep files={files} setFiles={setFiles} accepted={termsAccepted} setAccepted={setTermsAccepted} />}
+                  </>
+                ) : (
+                  <>
+                    {step === 0 && <DesignationChoice form={form} update={update} options={designations} loading={loadingOptions} />}
+                    {step === 1 && <PersonalDetails form={form} update={update} />}
+                    {step === 2 && <LocationDetails form={form} update={update} mode={mode} />}
+                    {step === 3 && <DocumentsStep files={files} setFiles={setFiles} accepted={termsAccepted} setAccepted={setTermsAccepted} />}
+                  </>
+                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -226,47 +228,6 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
           </footer>
         </section>
       </div>
-    </div>
-  )
-}
-
-function MembershipChoice({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const icons = [<UserRound className="size-6 text-[#0c7148]" />, <HeartHandshake className="size-6 text-[#0c7148]" />, <Briefcase className="size-6 text-[#0c7148]" />, <Star className="size-6 text-[#0c7148]" />];
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 mt-2">
-      {membership.types.map((type, index) => {
-        const isActive = value === type;
-        return (
-          <button
-            key={type}
-            type="button"
-            onClick={() => onChange(type)}
-            className={`group relative flex min-h-[140px] flex-col justify-between rounded-xl border p-6 text-left transition-all duration-300 ${
-              isActive 
-                ? 'border-2 border-[#0c7148] bg-[#f5fbf9] shadow-[0_8px_24px_rgba(12,113,72,0.12)]' 
-                : 'border-[#e2e8e4] bg-white hover:border-[#0c7148]/50 hover:shadow-sm'
-            }`}
-          >
-            {isActive && (
-              <div className="absolute right-4 top-4 grid size-[22px] place-items-center rounded-full bg-[#0c7148] text-white">
-                <Check className="size-3.5 stroke-[3.5]" />
-              </div>
-            )}
-            
-            <div className="flex items-start gap-4">
-              <div className={`grid size-14 shrink-0 place-items-center rounded-full transition-colors ${isActive ? 'bg-[#e3f2ec]' : 'bg-[#f4f7f5] group-hover:bg-[#eaf5f0]'}`}>
-                 {icons[index % icons.length] || <UserRound className="size-6 text-[#0c7148]" />}
-              </div>
-              <div className="mt-1">
-                <strong className="block font-[Outfit] text-[18px] font-bold text-[#052d1d] leading-tight">{type}</strong>
-                <small className="mt-1 block text-[13px] font-medium text-[#7a847f]">Select this membership path</small>
-              </div>
-            </div>
-            
-            <span className={`mt-4 text-[12px] font-bold tracking-wider ${isActive ? 'text-[#0c7148]' : 'text-[#d2ad55]'}`}>0{index + 1}</span>
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -398,14 +359,14 @@ function PaymentInfoRow({ label, value }: { label: string; value?: string | null
 
 function stepTitle(mode: ApplicationMode, step: number) {
   const titles = mode === 'membership'
-    ? ['Choose your membership', 'Tell us about yourself', 'Add your address', 'Upload verification documents']
+    ? ['Tell us about yourself', 'Add your address', 'Upload verification documents']
     : ['Choose a leadership role', 'Tell us about yourself', 'Confirm the requested area', 'Upload verification documents']
   return titles[step]
 }
 
 function stepDescription(mode: ApplicationMode, step: number) {
   const descriptions = mode === 'membership'
-    ? ['Select the membership path that reflects how you want to contribute.', 'Use the same information that appears on your identity document.', 'This helps DPO route your application to the right regional team.', 'Clear documents help the admin team complete verification without delays.']
+    ? ['Use the same information that appears on your identity document.', 'This helps DPO route your application to the right regional team.', 'Clear documents help the admin team complete verification without delays.']
     : ['Select an available designation and share your relevant experience.', 'Use accurate identity and contact information for administrative review.', 'Designation availability is checked by district and local area.', 'The admin team will verify each document before making a decision.']
   return descriptions[step]
 }

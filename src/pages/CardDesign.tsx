@@ -6,16 +6,20 @@ import PublicLayout from '../components/public/PublicLayout'
 import { CtaBand, DetailList, PageIntro, SectionHeader } from '../components/public/PublicUi'
 import { MemberCard } from './Membership'
 import { cardDesign } from '../content/publicContent'
-import { cmsImage, cmsList, cmsText, cmsTitle, organizationFromSettings, useCmsPage, usePublicSite } from '../lib/publicCms'
+import { cmsImage, cmsList, cmsPairs, cmsText, cmsTitle, cmsValue, organizationFromSettings, useCmsPage, usePublicSite } from '../lib/publicCms'
 
 export default function CardDesign() {
   const [side, setSide] = useState<'front' | 'back'>('front')
   const page = useCmsPage('card-design')
-  const frontItems = cmsList(page, 'frontItems', cardDesign.front)
-  const backItems = cmsList(page, 'backItems', cardDesign.back)
+  const labPage = useCmsPage('card-design-lab')
+  const principlesPage = useCmsPage('card-design-principles')
+  const referencePage = useCmsPage('card-design-reference')
+  const ctaPage = useCmsPage('card-design-cta')
+  const frontItems = cmsList(labPage, 'frontItems', cardDesign.front)
+  const backItems = cmsList(labPage, 'backItems', cardDesign.back)
   return (
     <PublicLayout>
-      <PageIntro eyebrow="Membership Identity" index="05" title={cmsTitle(page, 'Designed for recognition and trust.')} text={cmsText(page, 'A professional card system that balances clear public verification with responsible protection of member information.')} image={cmsImage(page, '/dpo-assets/home-mission-v2.jpg')} />
+      <PageIntro eyebrow={cmsValue(page, 'eyebrow', 'Membership Identity')} index={cmsValue(page, 'index', '05')} title={cmsTitle(page, 'Designed for recognition and trust.')} text={cmsText(page, 'A professional card system that balances clear public verification with responsible protection of member information.')} image={cmsImage(page, '/dpo-assets/home-mission-v2.jpg')} />
 
       <section className="dpo-section dpo-section--paper">
         <div className="dpo-container dpo-card-lab">
@@ -26,21 +30,30 @@ export default function CardDesign() {
                 {side === 'front' ? <MemberCard /> : <MemberCardBack />}
               </motion.div>
             </AnimatePresence>
-            <span className="dpo-card-lab__hint"><RotateCw size={14} /> Switch between card sides</span>
+            <span className="dpo-card-lab__hint"><RotateCw size={14} /> {cmsValue(labPage, 'hint', 'Switch between card sides')}</span>
           </div>
-          <div className="dpo-card-lab__copy"><SectionHeader eyebrow="Interactive Preview" title={cmsTitle(page, 'Every element has a clear verification purpose.')} text={cmsText(page, 'The sample uses the supplied DPO identity while keeping the final member information structured, legible and easy to verify.')} /><Stagger className="dpo-card-specs"><StaggerItem><article><CreditCard size={21} /><div><h3>Front side</h3><DetailList items={frontItems} /></div></article></StaggerItem><StaggerItem><article><QrCode size={21} /><div><h3>Back side</h3><DetailList items={backItems} /></div></article></StaggerItem></Stagger></div>
+          <div className="dpo-card-lab__copy"><SectionHeader eyebrow={cmsValue(labPage, 'eyebrow', 'Interactive Preview')} title={cmsTitle(labPage, 'Every element has a clear verification purpose.')} text={cmsText(labPage, 'The sample uses the supplied DPO identity while keeping the final member information structured, legible and easy to verify.')} /><Stagger className="dpo-card-specs"><StaggerItem><article><CreditCard size={21} /><div><h3>{cmsValue(labPage, 'frontTitle', 'Front side')}</h3><DetailList items={frontItems} /></div></article></StaggerItem><StaggerItem><article><QrCode size={21} /><div><h3>{cmsValue(labPage, 'backTitle', 'Back side')}</h3><DetailList items={backItems} /></div></article></StaggerItem></Stagger></div>
         </div>
       </section>
 
-      <section className="dpo-section dpo-section--white"><div className="dpo-container"><SectionHeader eyebrow="Design Principles" title="Credible, consistent and privacy-conscious." text="The visual identity should remain easy to recognize across printed cards, downloadable documents and verification screens." align="center" /><Stagger className="dpo-card-principles">{[
-        ['01', BadgeCheck, 'Authentic identity', 'Approved logo, colors and typography provide immediate recognition.'],
-        ['02', QrCode, 'Fast verification', 'A scannable code connects the physical card with an official record.'],
-        ['03', ShieldCheck, 'Protected information', 'Only the minimum information needed for public verification is displayed.'],
-      ].map(([no, Icon, title, text]) => { const IconComponent = Icon as typeof BadgeCheck; return <StaggerItem key={title as string}><article><span>{no as string}</span><IconComponent size={25} /><h3>{title as string}</h3><p>{text as string}</p></article></StaggerItem> })}</Stagger></div></section>
+      <section className="dpo-section dpo-section--white"><div className="dpo-container"><SectionHeader eyebrow={cmsValue(principlesPage, 'eyebrow', 'Design Principles')} title={cmsTitle(principlesPage, 'Credible, consistent and privacy-conscious.')} text={cmsText(principlesPage, 'The visual identity should remain easy to recognize across printed cards, downloadable documents and verification screens.')} align="center" /><Stagger className="dpo-card-principles">{cmsPairs(principlesPage, [
+        { title: 'Authentic identity', text: 'Approved logo, colors and typography provide immediate recognition.' },
+        { title: 'Fast verification', text: 'A scannable code connects the physical card with an official record.' },
+        { title: 'Protected information', text: 'Only the minimum information needed for public verification is displayed.' },
+      ]).map(({ title, text }, index) => { const IconComponent = [BadgeCheck, QrCode, ShieldCheck][index] ?? BadgeCheck; return <StaggerItem key={title}><article><span>{String(index + 1).padStart(2, '0')}</span><IconComponent size={25} /><h3>{title}</h3><p>{text}</p></article></StaggerItem> })}</Stagger></div></section>
 
-      <section className="dpo-card-reference"><div className="dpo-container"><Reveal><div><span className="dpo-eyebrow">Supplied assets</span><h2>Original card and designation references remain available.</h2><p>These client-provided files can guide final print dimensions and admin-generated outputs.</p></div></Reveal><Reveal className="dpo-card-reference__assets"><img src="/dpo-assets/cms/card-logo.png" alt="DPO card logo reference" /><img src="/dpo-assets/cms/designation.png" alt="DPO designation reference" /></Reveal></div></section>
+      <section className="dpo-card-reference"><div className="dpo-container"><Reveal><div><span className="dpo-eyebrow">{cmsValue(referencePage, 'eyebrow', 'Supplied assets')}</span><h2>{cmsTitle(referencePage, 'Original card and designation references remain available.')}</h2><p>{cmsText(referencePage, 'These client-provided files can guide final print dimensions and admin-generated outputs.')}</p></div></Reveal><Reveal className="dpo-card-reference__assets"><img src={cmsImage(referencePage, '/dpo-assets/cms/card-logo.png')} alt="DPO card logo reference" /><img src={cmsValue(referencePage, 'secondaryImage', '/dpo-assets/cms/designation.png')} alt="DPO designation reference" /></Reveal></div></section>
 
-      <CtaBand title="Official identity deserves careful implementation." text="The public preview is ready for later connection with approved member data and admin card generation." primaryHref="/membership" primaryLabel="Membership details" secondaryHref="/legal/data-cnic-privacy-policy" secondaryLabel="Data privacy" />
+      <CtaBand
+        eyebrow={cmsValue(ctaPage, 'eyebrow', 'Next Step')}
+        title={cmsTitle(ctaPage, 'Official identity deserves careful implementation.')}
+        text={cmsText(ctaPage, 'The public preview is ready for later connection with approved member data and admin card generation.')}
+        primaryHref={cmsValue(ctaPage, 'primaryHref', '/membership')}
+        primaryLabel={cmsValue(ctaPage, 'primaryCta', 'Membership details')}
+        secondaryHref={cmsValue(ctaPage, 'secondaryHref', '/legal/data-cnic-privacy-policy')}
+        secondaryLabel={cmsValue(ctaPage, 'secondaryCta', 'Data privacy')}
+        backgroundImage={cmsImage(ctaPage, '')}
+      />
     </PublicLayout>
   )
 }

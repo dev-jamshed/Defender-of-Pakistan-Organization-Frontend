@@ -144,8 +144,8 @@ export const actionPlan = [
 
 export const membership = {
   fee: 'PKR 2,000',
-  duration: 'One year / lifetime option to be finalized',
-  types: ['General Member', 'Volunteer Member', 'Executive Member', 'Life Time Member'],
+  duration: 'One year',
+  types: ['Member'],
   documents: ['CNIC or B-Form', 'Passport size photo', 'Mobile number', 'Email address', 'Residential address'],
   terms: [
     'Every member must follow the organization constitution, code of conduct and policies.',
@@ -163,7 +163,6 @@ export const membership = {
     'Address',
     'City',
     'Photo',
-    'Membership type',
     'Consent/signature',
   ],
 }
