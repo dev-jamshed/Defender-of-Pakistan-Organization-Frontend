@@ -5262,7 +5262,8 @@ tbody tr {
 
 .cms-editor-grid .urdu-field,
 .cms-editor-grid .urdu-field + .cms-editor-field + .cms-editor-field + .cms-editor-field,
-.cms-editor-grid .cms-editor-field:has(.urdu-editor) {
+.cms-editor-grid .cms-editor-field:has(.urdu-editor),
+.cms-system-field {
   display: none;
 }
 

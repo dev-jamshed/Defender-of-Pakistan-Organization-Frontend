@@ -31,7 +31,7 @@ import { CtaBand, SectionHeader } from '../components/public/PublicUi'
 import { about, actionPlan, brand, coreValues, hero, quickStats } from '../content/publicContent'
 import joinMissionImage from '../assets/join_mission.png'
 import merchandiseImage from '../assets/merch.png'
-import { cmsImage, cmsPairs, cmsText, cmsTitle, cmsValue, organizationFromSettings, settingValue, useCmsPage, usePublicSite } from '../lib/publicCms'
+import { assetPath, cmsImage, cmsList, cmsPairs, cmsText, cmsTitle, cmsValue, organizationFromSettings, settingValue, useCmsPage, usePublicSite } from '../lib/publicCms'
 
 const pillars = [
   { icon: Shield, title: 'National strength', text: 'Respect for institutions and rule of law.' },
@@ -55,6 +55,7 @@ export default function Home() {
   const whoWeArePage = useCmsPage('home-who-we-are')
   const actionPage = useCmsPage('action-plan')
   const pillarsPage = useCmsPage('home-pillars')
+  const portalsPage = useCmsPage('home-portals')
   const impactPage = useCmsPage('home-impact')
   const valuesPage = useCmsPage('home-values')
   const membershipPage = useCmsPage('home-membership-journey')
@@ -62,11 +63,30 @@ export default function Home() {
   const org = organizationFromSettings(site.settings)
   const logo = settingValue(site.settings, 'brand_logo_path', brand.assets.logo)
   const heroTitle = cmsValue(homePage, 'heroTitle', hero.titleLines.join('\n')).split(/\r?\n/).filter(Boolean)
+  const heroPrimaryCta = cmsValue(homePage, 'primaryCta', hero.primaryCta)
+  const heroPrimaryHref = cmsValue(homePage, 'primaryHref', '/apply/membership')
+  const heroSecondaryCta = cmsValue(homePage, 'secondaryCta', hero.secondaryCta)
+  const heroSecondaryHref = cmsValue(homePage, 'secondaryHref', '/contact')
   const homeValues = cmsPairs(homePage, heroValues.map(({ title, text }) => ({ title, text })))
   const pillarItems = cmsPairs(pillarsPage, pillars.map(({ title, text }) => ({ title, text })))
+  const portalItems = cmsPairs(portalsPage, [
+    { title: 'Become a Member', text: 'Be a part of a patriotic movement for positive change. Together we can build a better Pakistan.' },
+    { title: 'Official Merchandise', text: 'Wear your pride. Represent your nation.' },
+    { title: 'All in one place.', text: 'Together we can build a stronger, united and progressive Pakistan.' },
+  ])
   const valueItems = cmsPairs(valuesPage, coreValues.map(({ title, text }) => ({ title, text })))
   const actionItems = cmsPairs(actionPage, actionPlan.map(({ title, text }) => ({ title, text })))
   const impactItems = cmsPairs(impactPage, quickStats.map(({ label, value }) => ({ title: label, text: value })))
+  const portalMissionFeatures = cmsList(portalsPage, 'missionFeatures', ['Official Membership Card', 'Priority Invitations', 'Training & Workshops', 'Volunteer Opportunities'])
+  const portalMerchandiseFeatures = cmsList(portalsPage, 'merchandiseFeatures', ['Premium Quality', 'Official Logo', 'Nationwide Delivery', 'Support A Cause'])
+  const portalQuickLinks = parseQuickLinks(cmsList(portalsPage, 'quickLinks', [
+    'Membership | /membership',
+    'Donate | /contact',
+    'Downloads | /legal',
+    'Events | /action-plan',
+    'Gallery | /gallery',
+    'Documents | /legal',
+  ]))
   const journeyItems = cmsPairs(membershipPage, [
     { title: 'Choose your path', text: 'Select the membership type that matches your role and commitment.' },
     { title: 'Verify details', text: 'Submit the required identity and contact information securely.' },
@@ -100,8 +120,8 @@ export default function Home() {
             </h1>
             <Reveal delay={0.42}><p>{cmsText(homePage, hero.text)}</p></Reveal>
             <Reveal delay={0.56} className="dpo-actions">
-              <Link className="dpo-button dpo-button--gold" to="/apply/membership"><UserPlus size={17} /> {hero.primaryCta}</Link>
-              <Link className="dpo-button dpo-button--outline-light" to="/contact"><HandHeart size={17} /> {hero.secondaryCta}</Link>
+              <Link className="dpo-button dpo-button--gold" to={heroPrimaryHref}><UserPlus size={17} /> {heroPrimaryCta}</Link>
+              <Link className="dpo-button dpo-button--outline-light" to={heroSecondaryHref}><HandHeart size={17} /> {heroSecondaryCta}</Link>
             </Reveal>
           </div>
 
@@ -112,7 +132,7 @@ export default function Home() {
             transition={{ delay: 0.35, duration: 1, ease: [0.22, 1, 0.36, 1] }}
           >
             <img src={logo} alt="DPO official emblem" />
-            <span>Pakistan Zindabad</span>
+            <span>{cmsValue(homePage, 'emblemText', 'Pakistan Zindabad')}</span>
           </motion.div>
 
           <Reveal delay={0.62} direction="right" className="dpo-hero-values">
@@ -145,51 +165,49 @@ export default function Home() {
       <section className="dpo-home-portals" aria-label="Membership, merchandise and quick access">
         <div className="dpo-home-portals__grid">
           <article className="dpo-portal-card dpo-portal-card--mission">
-            <img src={joinMissionImage} alt="People celebrating Pakistan with the national flag" />
+            <img src={cmsImage(portalsPage, joinMissionImage)} alt="People celebrating Pakistan with the national flag" />
             <div className="dpo-portal-card__shade" />
             <div className="dpo-portal-card__content">
-              <span>Join our mission</span>
-              <h2>Become a Member</h2>
-              <p>Be a part of a patriotic movement for positive change. Together we can build a better Pakistan.</p>
-              <Link className="dpo-portal-button" to="/apply/membership">Join now <UserPlus size={19} /></Link>
+              <span>{cmsValue(portalsPage, 'eyebrow', 'Join our mission')}</span>
+              <h2>{portalItems[0]?.title}</h2>
+              <p>{portalItems[0]?.text}</p>
+              <Link className="dpo-portal-button" to={cmsValue(portalsPage, 'primaryHref', '/apply/membership')}>{cmsValue(portalsPage, 'primaryCta', 'Join now')} <UserPlus size={19} /></Link>
             </div>
             <div className="dpo-portal-features dpo-portal-features--mission">
-              <div><CreditCard size={21} /><span>Official<br />Membership Card</span></div>
-              <div><Star size={21} /><span>Priority<br />Invitations</span></div>
-              <div><GraduationCap size={21} /><span>Training &amp;<br />Workshops</span></div>
-              <div><HandHeart size={21} /><span>Volunteer<br />Opportunities</span></div>
+              {portalMissionFeatures.slice(0, 4).map((label, index) => {
+                const Icon = [CreditCard, Star, GraduationCap, HandHeart][index] ?? Star
+                return <div key={label}><Icon size={21} /><span>{label}</span></div>
+              })}
             </div>
           </article>
 
           <article className="dpo-portal-card dpo-portal-card--merchandise">
             <div className="dpo-portal-card__heading">
-              <h2>Official Merchandise</h2>
-              <p>Wear your pride. Represent your nation.</p>
+              <h2>{portalItems[1]?.title}</h2>
+              <p>{portalItems[1]?.text}</p>
             </div>
-            <img src={merchandiseImage} alt="Official green polo shirt and cap" />
-            <Link className="dpo-portal-button dpo-portal-button--shop" to="/contact"><ShoppingCart size={18} /> Shop now <ArrowRight size={18} /></Link>
+            <img src={assetPath(cmsValue(portalsPage, 'secondaryImage')) || merchandiseImage} alt="Official green polo shirt and cap" />
+            <Link className="dpo-portal-button dpo-portal-button--shop" to={cmsValue(portalsPage, 'secondaryHref', '/contact')}><ShoppingCart size={18} /> {cmsValue(portalsPage, 'secondaryCta', 'Shop now')} <ArrowRight size={18} /></Link>
             <div className="dpo-portal-features dpo-portal-features--merchandise">
-              <div><PackageCheck size={20} /><span>Premium<br />Quality</span></div>
-              <div><Star size={20} /><span>Official<br />Logo</span></div>
-              <div><Truck size={20} /><span>Nationwide<br />Delivery</span></div>
-              <div><HandHeart size={20} /><span>Support<br />A Cause</span></div>
+              {portalMerchandiseFeatures.slice(0, 4).map((label, index) => {
+                const Icon = [PackageCheck, Star, Truck, HandHeart][index] ?? Star
+                return <div key={label}><Icon size={20} /><span>{label}</span></div>
+              })}
             </div>
           </article>
 
           <article className="dpo-portal-card dpo-portal-card--access">
-            <span className="dpo-portal-card--access__eyebrow">Quick Access</span>
-            <h2>All in one place.</h2>
+            <span className="dpo-portal-card--access__eyebrow">{cmsValue(portalsPage, 'quickEyebrow', 'Quick Access')}</span>
+            <h2>{portalItems[2]?.title}</h2>
             <nav className="dpo-quick-access" aria-label="Quick access links">
-              <Link to="/membership"><Users size={26} /><span>Membership</span></Link>
-              <Link to="/contact"><HandHeart size={26} /><span>Donate</span></Link>
-              <Link to="/legal"><Download size={26} /><span>Downloads</span></Link>
-              <Link to="/action-plan"><CalendarDays size={26} /><span>Events</span></Link>
-              <Link to="/gallery"><Image size={26} /><span>Gallery</span></Link>
-              <Link to="/legal"><FileText size={26} /><span>Documents</span></Link>
+              {portalQuickLinks.slice(0, 6).map((link, index) => {
+                const Icon = [Users, HandHeart, Download, CalendarDays, Image, FileText][index] ?? FileText
+                return <Link to={link.href} key={`${link.label}-${link.href}`}><Icon size={26} /><span>{link.label}</span></Link>
+              })}
             </nav>
             <blockquote>
               <span aria-hidden="true">"</span>
-              <p>Together we can build a stronger,<br />united and progressive Pakistan.</p>
+              <p>{portalItems[2]?.text}</p>
             </blockquote>
           </article>
         </div>
@@ -199,21 +217,21 @@ export default function Home() {
         <div className="dpo-container dpo-home-about">
           <Reveal direction="left" className="dpo-home-about__media">
             <img src={cmsImage(whoWeArePage, '/dpo-assets/home-mission-v2.jpg')} alt="DPO volunteers distributing books" />
-            <div className="dpo-home-about__seal"><Sparkles size={19} /><strong>Service-led</strong><span>Across Pakistan</span></div>
-            <span className="dpo-home-about__caption">Community. Education. Nation.</span>
+            <div className="dpo-home-about__seal"><Sparkles size={19} /><strong>{cmsValue(whoWeArePage, 'sealTitle', 'Service-led')}</strong><span>{cmsValue(whoWeArePage, 'sealText', 'Across Pakistan')}</span></div>
+            <span className="dpo-home-about__caption">{cmsValue(whoWeArePage, 'mediaCaption', 'Community. Education. Nation.')}</span>
           </Reveal>
           <div className="dpo-home-about__content">
-            <SectionHeader eyebrow="Who We Are" title={cmsTitle(whoWeArePage, about.headline)} text={cmsText(whoWeArePage, about.body)} />
+            <SectionHeader eyebrow={cmsValue(whoWeArePage, 'eyebrow', 'Who We Are')} title={cmsTitle(whoWeArePage, about.headline)} text={cmsText(whoWeArePage, about.body)} />
             <Stagger className="dpo-about-principles">
-              <StaggerItem><article><span>01</span><div><h3>Our mission</h3><p>{cmsValue(whoWeArePage, 'mission', about.mission)}</p></div></article></StaggerItem>
-              <StaggerItem><article><span>02</span><div><h3>Our vision</h3><p>{cmsValue(whoWeArePage, 'vision', about.vision)}</p></div></article></StaggerItem>
+              <StaggerItem><article><span>01</span><div><h3>{cmsValue(whoWeArePage, 'missionTitle', 'Our mission')}</h3><p>{cmsValue(whoWeArePage, 'mission', about.mission)}</p></div></article></StaggerItem>
+              <StaggerItem><article><span>02</span><div><h3>{cmsValue(whoWeArePage, 'visionTitle', 'Our vision')}</h3><p>{cmsValue(whoWeArePage, 'vision', about.vision)}</p></div></article></StaggerItem>
             </Stagger>
-            <Reveal delay={0.15}><Link className="dpo-text-link" to="/about">Discover our story <ArrowRight size={17} /></Link></Reveal>
+            <Reveal delay={0.15}><Link className="dpo-text-link" to={cmsValue(whoWeArePage, 'linkHref', '/about')}>{cmsValue(whoWeArePage, 'linkLabel', 'Discover our story')} <ArrowRight size={17} /></Link></Reveal>
           </div>
         </div>
       </section>
 
-      <section className="dpo-impact-band">
+      <section className="dpo-impact-band" style={sectionBackgroundStyle(cmsImage(impactPage, ''))}>
         <div className="dpo-impact-band__texture" aria-hidden="true" />
         <div className="dpo-container dpo-impact-band__head">
           <Reveal><span className="dpo-eyebrow">{cmsValue(impactPage, 'eyebrow', 'Our growing impact')}</span><h2>{cmsTitle(impactPage, 'Progress measured through participation.')}</h2></Reveal>
@@ -226,7 +244,7 @@ export default function Home() {
 
       <section className="dpo-section dpo-section--white dpo-values-section">
         <div className="dpo-container">
-          <SectionHeader eyebrow="Our Foundation" title={cmsTitle(valuesPage, 'Values that shape every decision.')} text={cmsText(valuesPage, 'Clear principles keep public service accountable, inclusive and focused on long-term national progress.')} />
+          <SectionHeader eyebrow={cmsValue(valuesPage, 'eyebrow', 'Our Foundation')} title={cmsTitle(valuesPage, 'Values that shape every decision.')} text={cmsText(valuesPage, 'Clear principles keep public service accountable, inclusive and focused on long-term national progress.')} />
           <Stagger className="dpo-values-grid">
             {valueItems.map(({ title, text }, index) => {
               const Icon = coreValues[index]?.icon ?? ShieldCheck
@@ -239,11 +257,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="dpo-section dpo-roadmap-home">
+      <section className="dpo-section dpo-roadmap-home" style={sectionBackgroundStyle(cmsImage(actionPage, ''))}>
         <div className="dpo-container dpo-roadmap-home__layout">
           <div className="dpo-roadmap-home__intro">
-            <SectionHeader eyebrow="7-Point Action Plan" title={cmsTitle(actionPage, 'A practical roadmap for a stronger Pakistan.')} text={cmsText(actionPage, 'Seven connected priorities turn a national promise into focused, public-facing action.')} />
-            <Link className="dpo-button" to="/action-plan">Explore the plan <ArrowRight size={17} /></Link>
+            <SectionHeader eyebrow={cmsValue(actionPage, 'eyebrow', '7-Point Action Plan')} title={cmsTitle(actionPage, 'A practical roadmap for a stronger Pakistan.')} text={cmsText(actionPage, 'Seven connected priorities turn a national promise into focused, public-facing action.')} />
+            <Link className="dpo-button" to={cmsValue(actionPage, 'primaryHref', '/action-plan')}>{cmsValue(actionPage, 'primaryCta', 'Explore the plan')} <ArrowRight size={17} /></Link>
           </div>
           <Stagger className="dpo-roadmap-home__list">
             {actionItems.map(({ title, text }, index) => {
@@ -260,29 +278,42 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="dpo-section dpo-member-journey">
+      <section className="dpo-section dpo-member-journey" style={sectionBackgroundStyle(cmsImage(membershipPage, ''))}>
         <div className="dpo-container">
-          <SectionHeader eyebrow="Membership" title={cmsTitle(membershipPage, 'Your service journey starts here.')} text={cmsText(membershipPage, 'A transparent path from choosing your membership type to receiving an official, verifiable identity.')} align="center" />
+          <SectionHeader eyebrow={cmsValue(membershipPage, 'eyebrow', 'Membership')} title={cmsTitle(membershipPage, 'Your service journey starts here.')} text={cmsText(membershipPage, 'A transparent path from choosing your membership type to receiving an official, verifiable identity.')} align="center" />
           <Stagger className="dpo-member-steps">
             {journeyItems.map(({ title, text }, index) => {
               const Icon = [UserPlus, BadgeCheck, CreditCard, CheckCircle2][index] ?? UserPlus
               return <StaggerItem key={title}><article><span>{String(index + 1).padStart(2, '0')}</span><Icon size={25} /><h3>{title}</h3><p>{text}</p></article></StaggerItem>
             })}
           </Stagger>
-          <Reveal className="dpo-member-journey__action"><Link className="dpo-button dpo-button--gold" to="/apply/membership">Start membership application <ArrowRight size={17} /></Link></Reveal>
+          <Reveal className="dpo-member-journey__action"><Link className="dpo-button dpo-button--gold" to={cmsValue(membershipPage, 'primaryHref', '/apply/membership')}>{cmsValue(membershipPage, 'primaryCta', 'Start membership application')} <ArrowRight size={17} /></Link></Reveal>
         </div>
       </section>
 
       <CtaBand
+        eyebrow={cmsValue(ctaPage, 'eyebrow', 'Next Step')}
         title={cmsTitle(ctaPage, 'Build the future through service.')}
         text={cmsText(ctaPage, 'Explore DPO membership, leadership roles and national programs, then choose where your contribution can matter most.')}
-        primaryHref="/membership"
-        primaryLabel="Join the organization"
-        secondaryHref="/contact"
-        secondaryLabel="Talk to our team"
+        primaryHref={cmsValue(ctaPage, 'primaryHref', '/membership')}
+        primaryLabel={cmsValue(ctaPage, 'primaryCta', 'Join the organization')}
+        secondaryHref={cmsValue(ctaPage, 'secondaryHref', '/contact')}
+        secondaryLabel={cmsValue(ctaPage, 'secondaryCta', 'Talk to our team')}
+        backgroundImage={cmsImage(ctaPage, '')}
       />
     </PublicLayout>
   )
+}
+
+function parseQuickLinks(rows: string[]) {
+  return rows.map((row) => {
+    const [label, href] = row.split('|').map((part) => part.trim())
+    return { label: label || 'Link', href: href || '/' }
+  })
+}
+
+function sectionBackgroundStyle(image: string) {
+  return image ? { backgroundImage: `linear-gradient(0deg, rgba(5, 45, 29, .82), rgba(5, 45, 29, .82)), url(${image})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined
 }
 
 function CounterStat({ value, label, icon: Icon }: { value: string; label: string; icon: typeof Users }) {

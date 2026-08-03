@@ -76,19 +76,21 @@ export function SplitSection({
   )
 }
 
-export function CtaBand({ title, text, primaryHref, primaryLabel, secondaryHref, secondaryLabel }: {
+export function CtaBand({ title, text, primaryHref, primaryLabel, secondaryHref, secondaryLabel, eyebrow = 'Next Step', backgroundImage }: {
   title: string
   text: string
   primaryHref: string
   primaryLabel: string
   secondaryHref?: string
   secondaryLabel?: string
+  eyebrow?: string
+  backgroundImage?: string
 }) {
   return (
-    <section className="dpo-cta-band">
+    <section className="dpo-cta-band" style={backgroundImage ? { backgroundImage: `linear-gradient(90deg, rgba(12, 113, 72, .94), rgba(5, 45, 29, .82)), url(${backgroundImage})` } : undefined}>
       <div className="dpo-container dpo-cta-band__inner">
         <div>
-          <span className="dpo-eyebrow">Next Step</span>
+          <span className="dpo-eyebrow">{eyebrow}</span>
           <h2>{title}</h2>
           <p>{text}</p>
         </div>

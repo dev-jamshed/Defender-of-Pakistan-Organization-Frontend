@@ -42,6 +42,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './Admin.css'
+import { invalidatePublicSiteCache } from '../lib/publicCms'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api'
 const AUTH_STORAGE_KEY = 'dpo-admin-session'
@@ -3683,7 +3684,7 @@ function GalleryDropzone({ onUpload }: { onUpload: (files: FileList | null) => v
 }
 
 const cmsPageGroups = [
-  { label: 'Home', sections: ['home', 'home-pillars', 'home-who-we-are', 'home-impact', 'home-values', 'home-membership-journey', 'home-cta'] },
+  { label: 'Home', sections: ['home', 'home-pillars', 'home-portals', 'home-who-we-are', 'home-impact', 'home-values', 'home-membership-journey', 'home-cta'] },
   { label: 'About', sections: ['about'] },
   { label: 'Action Plan', sections: ['action-plan'] },
   { label: 'Membership', sections: ['membership'] },
@@ -3712,22 +3713,19 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
     const matchesStatus = status === 'All' || normalizeStatus(page.status) === normalizeStatus(status)
     return matchesPage && matchesSearch && matchesStatus
   }).sort((first, second) => selectedGroup.sections.indexOf(toText(first.slug)) - selectedGroup.sections.indexOf(toText(second.slug)))
-  const statusOptions = ['All', ...Array.from(new Set(pages.map((page) => titleStatus(page.status)).filter(Boolean)))]
+  const statusOptions = ['All', 'Published', 'Draft']
   const drafts = pages.filter((page) => normalizeStatus(page.status) === 'draft').length
   const published = pages.filter((page) => normalizeStatus(page.status) === 'published').length
-  const handleCmsAction = async (page: DpoRecord, action: 'publish' | 'archive' | 'draft') => {
+  const handleCmsAction = async (page: DpoRecord, action: 'publish' | 'draft') => {
     setOpenMenuId(null)
     if (action === 'publish') {
       await apiState.runAction('cms-pages', page.id, 'publish')
+      invalidatePublicSiteCache()
       setActionMessage(`${toText(page.titleEnglish) || 'Page'} published.`)
       return
     }
-    if (action === 'archive') {
-      await apiState.runAction('cms-pages', page.id, 'archive')
-      setActionMessage(`${toText(page.titleEnglish) || 'Page'} archived.`)
-      return
-    }
     await apiState.updateRecord('cms-pages', page.id, { status: 'draft' })
+    invalidatePublicSiteCache()
     setActionMessage(`${toText(page.titleEnglish) || 'Page'} saved as draft.`)
   }
 
@@ -3781,7 +3779,6 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
                           <div className="row-action-menu" onClick={(event) => event.stopPropagation()}>
                             <button type="button" onClick={() => void handleCmsAction(page, 'publish')}>Publish</button>
                             <button type="button" onClick={() => void handleCmsAction(page, 'draft')}>Draft</button>
-                            <button type="button" onClick={() => void handleCmsAction(page, 'archive')}>Archive</button>
                           </div>
                         )}
                       </div>
@@ -3838,6 +3835,118 @@ function WebsiteCmsScreen({ apiState, searchQuery }: { apiState: ApiState; searc
   )
 }
 
+function cmsEditorConfig(slug: string) {
+  const defaults = {
+    title: 'Section Title',
+    eyebrow: '',
+    heroTitle: '',
+    text: 'Section Text',
+    image: 'Upload Image',
+    items: '',
+    mission: '',
+    vision: '',
+    buttons: false,
+    secondaryImage: '',
+    portalCards: false,
+    customFields: [] as { key: string; label: string; multiline?: boolean }[],
+  }
+  const configs: Record<string, typeof defaults> = {
+    home: {
+      ...defaults,
+      title: '',
+      heroTitle: 'Hero Title Lines',
+      text: 'Hero Text',
+      image: 'Hero Image',
+      items: 'Hero Value Boxes (Title | Text)',
+      buttons: true,
+      customFields: [{ key: 'emblemText', label: 'Emblem Text' }],
+    },
+    'home-pillars': {
+      ...defaults,
+      title: '',
+      text: '',
+      image: '',
+      items: 'Pillar Cards (Title | Text)',
+    },
+    'home-portals': {
+      ...defaults,
+      title: '',
+      eyebrow: 'First Card Small Heading',
+      text: '',
+      image: 'Join Mission Image',
+      secondaryImage: 'Merchandise Image',
+      portalCards: true,
+      items: '',
+      buttons: true,
+      customFields: [
+        { key: 'missionFeatures', label: 'First Card Features (one per line)', multiline: true },
+        { key: 'merchandiseFeatures', label: 'Second Card Features (one per line)', multiline: true },
+        { key: 'quickEyebrow', label: 'Third Card Small Heading' },
+        { key: 'quickLinks', label: 'Quick Links (Label | Link)', multiline: true },
+      ],
+    },
+    'home-who-we-are': {
+      ...defaults,
+      eyebrow: 'Small Heading',
+      title: 'Who We Are Title',
+      text: 'Who We Are Text',
+      image: 'Who We Are Image',
+      mission: 'Mission Text',
+      vision: 'Vision Text',
+      customFields: [
+        { key: 'sealTitle', label: 'Image Badge Title' },
+        { key: 'sealText', label: 'Image Badge Text' },
+        { key: 'mediaCaption', label: 'Image Caption' },
+        { key: 'missionTitle', label: 'Mission Heading' },
+        { key: 'visionTitle', label: 'Vision Heading' },
+        { key: 'linkLabel', label: 'Link Text' },
+        { key: 'linkHref', label: 'Link URL' },
+      ],
+    },
+    'home-impact': {
+      ...defaults,
+      title: 'Impact Title',
+      eyebrow: 'Impact Small Heading',
+      text: 'Impact Text',
+      image: 'Background Image',
+      items: 'Impact Stats (Label | Value)',
+    },
+    'home-values': {
+      ...defaults,
+      title: 'Values Title',
+      eyebrow: 'Small Heading',
+      text: 'Values Text',
+      image: 'Background Image',
+      items: 'Value Rows (Title | Text)',
+    },
+    'home-membership-journey': {
+      ...defaults,
+      title: 'Membership Journey Title',
+      eyebrow: 'Small Heading',
+      text: 'Membership Journey Text',
+      image: 'Background Image',
+      items: 'Journey Steps (Title | Text)',
+      buttons: true,
+    },
+    'home-cta': {
+      ...defaults,
+      title: 'CTA Title',
+      eyebrow: 'Small Heading',
+      text: 'CTA Text',
+      image: 'Background Image',
+      buttons: true,
+    },
+    'card-design': {
+      ...defaults,
+      title: 'Card Page Title',
+      text: 'Card Page Text',
+      image: 'Card Page Image',
+      items: '',
+    },
+  }
+  return configs[slug] ?? defaults
+}
+
 function CmsContentEditor({
   mode,
   record,
@@ -3852,11 +3961,21 @@ function CmsContentEditor({
   onSaved: (message: string) => void
 }) {
   const recordContent = asObject(record?.content)
+  const slug = toText(record?.slug)
+  const fieldConfig = cmsEditorConfig(slug)
   const existingImage = toText(record?.image ?? recordContent.image) || valueList(recordContent.heroSlides)[0] || ''
-  const [draft, setDraft] = useState({
+  const [draft, setDraft] = useState<Record<string, string>>({
     titleEnglish: toText(record?.titleEnglish),
     titleUrdu: toText(record?.titleUrdu),
     eyebrow: toText(recordContent.eyebrow),
+    heroTitle: toText(recordContent.heroTitle),
+    mission: toText(recordContent.mission),
+    vision: toText(recordContent.vision),
+    primaryCta: toText(recordContent.primaryCta),
+    primaryHref: toText(recordContent.primaryHref),
+    secondaryCta: toText(recordContent.secondaryCta),
+    secondaryHref: toText(recordContent.secondaryHref),
+    secondaryImage: toText(recordContent.secondaryImage),
     slug: toText(record?.slug),
     type: toText(record?.type) || 'page',
     status: normalizeStatus(record?.status) || 'draft',
@@ -3867,18 +3986,28 @@ function CmsContentEditor({
     contentEnglish: cmsEditorText(record, 'en'),
     contentUrdu: cmsEditorText(record, 'ur'),
     items: valueList(recordContent.items).join('\n'),
+    portalCard1Title: cmsItemParts(recordContent.items, 0).title,
+    portalCard1Text: cmsItemParts(recordContent.items, 0).text,
+    portalCard2Title: cmsItemParts(recordContent.items, 1).title,
+    portalCard2Text: cmsItemParts(recordContent.items, 1).text,
+    portalCard3Title: cmsItemParts(recordContent.items, 2).title,
+    portalCard3Text: cmsItemParts(recordContent.items, 2).text,
+    ...Object.fromEntries(fieldConfig.customFields.map((field) => {
+      const value = recordContent[field.key]
+      return [field.key, Array.isArray(value) ? value.map(toText).join('\n') : toText(value)]
+    })),
   })
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
 
-  const updateDraft = (key: keyof typeof draft, value: string) => setDraft((current) => ({ ...current, [key]: value }))
-  const uploadImage = async (file: File | null) => {
+  const updateDraft = (key: string, value: string) => setDraft((current) => ({ ...current, [key]: value }))
+  const uploadImage = async (file: File | null, target: 'image' | 'secondaryImage' = 'image') => {
     if (!file) return
     setUploading(true)
     try {
       const dataUrl = await readFileAsDataUrl(file)
       const uploaded = await apiSend<{ url: string }>('/admin/cms/upload', 'POST', { name: file.name, dataUrl }, getStoredSession()?.token)
-      updateDraft('image', uploaded.url)
+      updateDraft(target, uploaded.url)
       onSaved('Image uploaded.')
     } catch (error) {
       onSaved(error instanceof Error ? error.message : 'Image could not be uploaded.')
@@ -3890,6 +4019,13 @@ function CmsContentEditor({
     setSaving(true)
     try {
       const cleanSlug = (draft.slug || slugify(draft.titleEnglish || 'cms-page')).replace(/^\/+/, '')
+      const sectionItems = fieldConfig.portalCards
+        ? [
+          `${draft.portalCard1Title} | ${draft.portalCard1Text}`,
+          `${draft.portalCard2Title} | ${draft.portalCard2Text}`,
+          `${draft.portalCard3Title} | ${draft.portalCard3Text}`,
+        ].filter((item) => item.replace('|', '').trim())
+        : draft.items.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
       const payload = {
         titleEnglish: draft.titleEnglish.trim() || 'Untitled Page',
         slug: cleanSlug,
@@ -3904,9 +4040,21 @@ function CmsContentEditor({
           bodyEnglish: draft.contentEnglish,
           bodyUrdu: draft.contentUrdu,
           eyebrow: draft.eyebrow,
+          heroTitle: draft.heroTitle,
+          mission: draft.mission,
+          vision: draft.vision,
+          primaryCta: draft.primaryCta,
+          primaryHref: draft.primaryHref,
+          secondaryCta: draft.secondaryCta,
+          secondaryHref: draft.secondaryHref,
+          secondaryImage: draft.secondaryImage,
           image: draft.image.trim(),
-          items: draft.items.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+          items: sectionItems,
           metaDescription: draft.metaDescription,
+          ...Object.fromEntries(fieldConfig.customFields.map((field) => [
+            field.key,
+            field.multiline ? (draft[field.key] ?? '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean) : (draft[field.key] ?? ''),
+          ])),
           updatedFromCmsEditor: true,
         },
       }
@@ -3915,6 +4063,7 @@ function CmsContentEditor({
       } else if (record) {
         await apiState.updateRecord('cms-pages', record.id, payload)
       }
+      invalidatePublicSiteCache()
       onSaved(`${payload.titleEnglish} ${nextStatus === 'published' ? 'published' : 'saved'} in CMS.`)
       setSaving(false)
       onClose()
@@ -3936,29 +4085,33 @@ function CmsContentEditor({
         </header>
 
         <div className="cms-editor-grid">
-          <label className="cms-editor-field">
-            <span>Page Title</span>
-            <input value={draft.titleEnglish} onChange={(event) => updateDraft('titleEnglish', event.target.value)} placeholder="About Defenders of Pakistan" />
-          </label>
-          <label className="cms-editor-field">
-            <span>Small Heading</span>
-            <input value={draft.eyebrow} onChange={(event) => updateDraft('eyebrow', event.target.value)} placeholder="Our growing impact" />
-          </label>
+          {fieldConfig.title && <label className="cms-editor-field">
+            <span>{fieldConfig.title}</span>
+            <input value={draft.titleEnglish} onChange={(event) => updateDraft('titleEnglish', event.target.value)} placeholder="Section title" />
+          </label>}
+          {fieldConfig.heroTitle && <label className="cms-editor-field wide">
+            <span>{fieldConfig.heroTitle}</span>
+            <textarea value={draft.heroTitle} onChange={(event) => updateDraft('heroTitle', event.target.value)} placeholder="One Flag&#10;One Nation&#10;One Pakistan" />
+          </label>}
+          {fieldConfig.eyebrow && <label className="cms-editor-field">
+            <span>{fieldConfig.eyebrow}</span>
+            <input value={draft.eyebrow} onChange={(event) => updateDraft('eyebrow', event.target.value)} placeholder="Small heading" />
+          </label>}
           <label className="cms-editor-field urdu-field">
             <span>Urdu Title</span>
             <input dir="rtl" lang="ur" value={draft.titleUrdu} onChange={(event) => updateDraft('titleUrdu', event.target.value)} placeholder="پاکستان کے محافظ" />
           </label>
-          <label className="cms-editor-field">
+          <label className="cms-editor-field cms-system-field">
             <span>Page Slug</span>
             <input value={draft.slug} onChange={(event) => updateDraft('slug', event.target.value)} placeholder="about" />
           </label>
-          <label className="cms-editor-field">
+          <label className="cms-editor-field cms-system-field">
             <span>Page Type</span>
             <select value={draft.type} onChange={(event) => updateDraft('type', event.target.value)}>
               {['page', 'legal', 'news'].map((item) => <option key={item} value={item}>{titleStatus(item)}</option>)}
             </select>
           </label>
-          <label className="cms-editor-field">
+          <label className="cms-editor-field cms-system-field">
             <span>Language</span>
             <select value={draft.language} onChange={(event) => updateDraft('language', event.target.value)}>
               <option value="EN">English</option>
@@ -3971,22 +4124,56 @@ function CmsContentEditor({
             <select value={draft.status} onChange={(event) => updateDraft('status', event.target.value)}>
               <option value="draft">Draft</option>
               <option value="published">Published</option>
-              <option value="archived">Archived</option>
             </select>
           </label>
-          <label className="cms-editor-field wide cms-upload-field">
-            <span>Upload Image</span>
+          {fieldConfig.image && <label className="cms-editor-field wide cms-upload-field">
+            <span>{fieldConfig.image}</span>
             <input type="file" accept="image/*" disabled={uploading} onChange={(event) => void uploadImage(event.target.files?.[0] ?? null)} />
             {draft.image ? <div className="cms-upload-preview"><img src={assetPath(draft.image)} alt="" /><small>{draft.image.split('/').pop()}</small></div> : <small>No image selected</small>}
-          </label>
-          <label className="cms-editor-field wide">
-            <span>List Items</span>
+          </label>}
+          {fieldConfig.secondaryImage && <label className="cms-editor-field wide cms-upload-field">
+            <span>{fieldConfig.secondaryImage}</span>
+            <input type="file" accept="image/*" disabled={uploading} onChange={(event) => void uploadImage(event.target.files?.[0] ?? null, 'secondaryImage')} />
+            {draft.secondaryImage ? <div className="cms-upload-preview"><img src={assetPath(draft.secondaryImage)} alt="" /><small>{draft.secondaryImage.split('/').pop()}</small></div> : <small>No image selected</small>}
+          </label>}
+          {fieldConfig.portalCards && <>
+            <label className="cms-editor-field"><span>Card 1 Title</span><input value={draft.portalCard1Title} onChange={(event) => updateDraft('portalCard1Title', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Card 1 Text</span><input value={draft.portalCard1Text} onChange={(event) => updateDraft('portalCard1Text', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Card 2 Title</span><input value={draft.portalCard2Title} onChange={(event) => updateDraft('portalCard2Title', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Card 2 Text</span><input value={draft.portalCard2Text} onChange={(event) => updateDraft('portalCard2Text', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Card 3 Title</span><input value={draft.portalCard3Title} onChange={(event) => updateDraft('portalCard3Title', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Card 3 Text</span><input value={draft.portalCard3Text} onChange={(event) => updateDraft('portalCard3Text', event.target.value)} /></label>
+          </>}
+          {fieldConfig.items && <label className="cms-editor-field wide">
+            <span>{fieldConfig.items}</span>
             <textarea value={draft.items} onChange={(event) => updateDraft('items', event.target.value)} placeholder="One item per line" />
-          </label>
-          <label className="cms-editor-field wide">
-            <span>Page Text</span>
+          </label>}
+          {fieldConfig.customFields.map((field) => (
+            <label className="cms-editor-field wide" key={field.key}>
+              <span>{field.label}</span>
+              {field.multiline
+                ? <textarea value={draft[field.key] ?? ''} onChange={(event) => updateDraft(field.key, event.target.value)} placeholder="One item per line" />
+                : <input value={draft[field.key] ?? ''} onChange={(event) => updateDraft(field.key, event.target.value)} />}
+            </label>
+          ))}
+          {fieldConfig.text && <label className="cms-editor-field wide">
+            <span>{fieldConfig.text}</span>
             <textarea className="cms-text-editor" value={draft.contentEnglish} onChange={(event) => updateDraft('contentEnglish', event.target.value)} placeholder="Write page text here..." />
-          </label>
+          </label>}
+          {fieldConfig.mission && <label className="cms-editor-field wide">
+            <span>{fieldConfig.mission}</span>
+            <textarea value={draft.mission} onChange={(event) => updateDraft('mission', event.target.value)} placeholder="Mission text" />
+          </label>}
+          {fieldConfig.vision && <label className="cms-editor-field wide">
+            <span>{fieldConfig.vision}</span>
+            <textarea value={draft.vision} onChange={(event) => updateDraft('vision', event.target.value)} placeholder="Vision text" />
+          </label>}
+          {fieldConfig.buttons && <>
+            <label className="cms-editor-field"><span>Primary Button Text</span><input value={draft.primaryCta} onChange={(event) => updateDraft('primaryCta', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Primary Button Link</span><input value={draft.primaryHref} onChange={(event) => updateDraft('primaryHref', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Secondary Button Text</span><input value={draft.secondaryCta} onChange={(event) => updateDraft('secondaryCta', event.target.value)} /></label>
+            <label className="cms-editor-field"><span>Secondary Button Link</span><input value={draft.secondaryHref} onChange={(event) => updateDraft('secondaryHref', event.target.value)} /></label>
+          </>}
           <label className="cms-editor-field wide">
             <span>Urdu Content Editor</span>
             <textarea className="cms-text-editor urdu-editor" dir="rtl" lang="ur" value={draft.contentUrdu} onChange={(event) => updateDraft('contentUrdu', event.target.value)} placeholder="یہاں مکمل اردو مواد لکھیں..." />
@@ -3995,7 +4182,7 @@ function CmsContentEditor({
 
         <footer className="cms-editor-actions">
           <button type="button" onClick={onClose}>Cancel</button>
-          <button type="button" disabled={saving} onClick={() => void saveCmsPage('draft')}>{saving ? 'Saving...' : 'Save Draft'}</button>
+          <button type="button" disabled={saving} onClick={() => void saveCmsPage()}>{saving ? 'Saving...' : 'Save Changes'}</button>
           <button className="primary-action" type="button" disabled={saving} onClick={() => void saveCmsPage('published')}>Publish</button>
         </footer>
       </section>
@@ -4612,6 +4799,7 @@ function cmsSectionLabel(page: DpoRecord) {
   const labels: Record<string, string> = {
     home: 'Hero',
     'home-pillars': 'Pillars',
+    'home-portals': 'Portal Cards',
     'home-who-we-are': 'Who We Are',
     'home-impact': 'Impact',
     'home-values': 'Values',
@@ -4632,6 +4820,12 @@ function cmsSectionLabel(page: DpoRecord) {
   }
   const slug = toText(page.slug)
   return labels[slug] ?? titleStatus(slug.replace(/^(home|membership-page|designations|member-services)-/, ''))
+}
+
+function cmsItemParts(value: unknown, index: number) {
+  const row = valueList(value)[index] ?? ''
+  const [title, ...textParts] = row.split('|').map((part) => part.trim())
+  return { title: title ?? '', text: textParts.join(' | ') }
 }
 
 function getAlbumImages(album: DpoRecord) {

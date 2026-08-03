@@ -46,6 +46,11 @@ function loadPublicSite() {
   return loadingPromise
 }
 
+export function invalidatePublicSiteCache() {
+  cachedSite = null
+  loadingPromise = null
+}
+
 export function usePublicSite() {
   const [site, setSite] = useState<PublicSiteData>(cachedSite ?? fallbackSite)
 
