@@ -51,7 +51,7 @@ export default function Designations() {
     <PublicLayout>
       <PageIntro eyebrow={cmsValue(page, 'eyebrow', 'Leadership & Designations')} index={cmsValue(page, 'index', '04')} title={cmsTitle(page, 'Clear roles. Accountable leadership.')} text={cmsText(page, "Explore DPO's public designation structure, role responsibilities and the principles used for controlled leadership allocation.")} image={cmsImage(page, '/dpo-assets/home-hero-v2.jpg')} />
 
-      <section className="dpo-leadership-metrics"><div className="dpo-container"><div><UsersRound size={22} /><span>{cmsValue(metricsPage, 'rolesLabel', 'Published roles')}</span><b>{loading ? '...' : liveItems.length}</b></div><div><FileText size={22} /><span>{cmsValue(metricsPage, 'feeLabel', 'Designation fee')}</span><b>{feeLabel}</b></div><div><CalendarDays size={22} /><span>{cmsValue(metricsPage, 'durationLabel', 'Appointment duration')}</span><b>{durationLabel}</b></div></div></section>
+      <section className="dpo-leadership-metrics"><div className="dpo-container"><div><UsersRound size={22} /><span>{cmsValue(metricsPage, 'rolesLabel', 'Published roles')}</span><b>{cmsValue(metricsPage, 'rolesValue', loading ? '...' : String(liveItems.length))}</b></div><div><FileText size={22} /><span>{cmsValue(metricsPage, 'feeLabel', 'Designation fee')}</span><b>{cmsValue(metricsPage, 'feeValue', feeLabel)}</b></div><div><CalendarDays size={22} /><span>{cmsValue(metricsPage, 'durationLabel', 'Appointment duration')}</span><b>{cmsValue(metricsPage, 'durationValue', durationLabel)}</b></div></div></section>
 
       <section className="dpo-section dpo-section--paper">
         <div className="dpo-container dpo-leadership-intro">

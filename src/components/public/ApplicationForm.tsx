@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { fileToDocument, postPublic, publicApi } from '@/lib/publicApi'
+import { cmsList, cmsValue, useCmsPage } from '@/lib/publicCms'
 
 type ApplicationMode = 'membership' | 'designation'
 type FormState = Record<string, string>
@@ -83,6 +84,7 @@ const initialFiles: FileState = {
 }
 
 export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
+  const page = useCmsPage(mode === 'membership' ? 'membership-application' : 'designation-application')
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<FormState>(initialForm)
   const [files, setFiles] = useState<FileState>(initialFiles)
@@ -93,9 +95,16 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
   const [error, setError] = useState('')
   const [receipt, setReceipt] = useState<ApplicationReceipt | null>(null)
 
-  const steps = useMemo(() => mode === 'membership'
+  const fallbackSteps = useMemo(() => mode === 'membership'
     ? ['Personal details', 'Address', 'Documents']
     : ['Role', 'Personal details', 'Location', 'Documents'], [mode])
+  const steps = cmsList(page, 'formSteps', fallbackSteps)
+  const stepTitles = cmsList(page, 'stepTitles', mode === 'membership'
+    ? ['Tell us about yourself', 'Add your address', 'Upload verification documents']
+    : ['Choose a leadership role', 'Tell us about yourself', 'Confirm the requested area', 'Upload verification documents'])
+  const stepDescriptions = cmsList(page, 'stepDescriptions', mode === 'membership'
+    ? ['Use the same information that appears on your identity document.', 'This helps DPO route your application to the right regional team.', 'Clear documents help the admin team complete verification without delays.']
+    : ['Select an available designation and share your relevant experience.', 'Use accurate identity and contact information for administrative review.', 'Designation availability is checked by district and local area.', 'The admin team will verify each document before making a decision.'])
 
   useEffect(() => {
     if (mode !== 'designation') return
@@ -167,9 +176,9 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
         
         {/* Sidebar */}
         <aside className="h-fit rounded-xl border border-[#e2e8e4] bg-white p-6 shadow-[0_4px_24px_rgba(13,33,23,.03)] lg:sticky lg:top-28">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#0c7148]">Application progress</span>
-          <h2 className="mt-3 font-[Outfit] text-2xl font-bold text-[#052d1d]">{mode === 'membership' ? 'Become a DPO member' : 'Apply for a designation'}</h2>
-          <p className="mt-2 text-[13px] leading-5 text-[#7a847f]">Your details remain editable until the final submission.</p>
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#0c7148]">{cmsValue(page, 'progressLabel', 'Application progress')}</span>
+          <h2 className="mt-3 font-[Outfit] text-2xl font-bold text-[#052d1d]">{cmsValue(page, 'formTitle', mode === 'membership' ? 'Become a DPO member' : 'Apply for a designation')}</h2>
+          <p className="mt-2 text-[13px] leading-5 text-[#7a847f]">{cmsValue(page, 'formText', 'Your details remain editable until the final submission.')}</p>
           
           <div className="mt-8 border-t border-[#f0f3f1] pt-6">
             <ol className="space-y-2">
@@ -186,16 +195,16 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
           
           <div className="mt-8 flex items-start gap-3 rounded-lg bg-[#f9fafa] p-4 text-[11px] leading-5 text-[#64706a]">
             <LockKeyhole className="mt-0.5 size-4 shrink-0 text-[#0c7148]" />
-            CNIC is masked in application records. Original files remain available only for authorized review.
+            {cmsValue(page, 'privacyNote', 'CNIC is masked in application records. Original files remain available only for authorized review.')}
           </div>
         </aside>
 
         {/* Main Content Card */}
         <section className="min-w-0 flex flex-col rounded-xl border border-[#e2e8e4] bg-white shadow-[0_8px_32px_rgba(13,33,23,.04)]">
           <header className="px-6 pb-4 pt-8 sm:px-10 sm:pt-10">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0c7148]">Step {step + 1} of {steps.length}</span>
-            <h2 className="mt-3 font-[Outfit] text-3xl font-bold tracking-tight text-[#052d1d] sm:text-[34px]">{stepTitle(mode, step)}</h2>
-            <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#64706a]">{stepDescription(mode, step)}</p>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#0c7148]">{cmsValue(page, 'stepPrefix', 'Step')} {step + 1} of {steps.length}</span>
+            <h2 className="mt-3 font-[Outfit] text-3xl font-bold tracking-tight text-[#052d1d] sm:text-[34px]">{stepTitles[step]}</h2>
+            <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#64706a]">{stepDescriptions[step]}</p>
           </header>
 
           <div className="flex-1 p-6 pt-2 sm:p-10 sm:pt-4">
@@ -206,14 +215,14 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
                   <>
                     {step === 0 && <PersonalDetails form={form} update={update} />}
                     {step === 1 && <LocationDetails form={form} update={update} mode={mode} />}
-                    {step === 2 && <DocumentsStep files={files} setFiles={setFiles} accepted={termsAccepted} setAccepted={setTermsAccepted} />}
+                    {step === 2 && <DocumentsStep page={page} files={files} setFiles={setFiles} accepted={termsAccepted} setAccepted={setTermsAccepted} />}
                   </>
                 ) : (
                   <>
                     {step === 0 && <DesignationChoice form={form} update={update} options={designations} loading={loadingOptions} />}
                     {step === 1 && <PersonalDetails form={form} update={update} />}
                     {step === 2 && <LocationDetails form={form} update={update} mode={mode} />}
-                    {step === 3 && <DocumentsStep files={files} setFiles={setFiles} accepted={termsAccepted} setAccepted={setTermsAccepted} />}
+                    {step === 3 && <DocumentsStep page={page} files={files} setFiles={setFiles} accepted={termsAccepted} setAccepted={setTermsAccepted} />}
                   </>
                 )}
               </motion.div>
@@ -221,10 +230,10 @@ export default function ApplicationForm({ mode }: { mode: ApplicationMode }) {
           </div>
 
           <footer className="flex flex-col-reverse gap-3 rounded-b-xl border-t border-[#f0f3f1] bg-[#fdfdfc] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-            <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => { setError(''); setStep((current) => current - 1) }} className="h-12 rounded-lg border-[#d2dcd7] px-6 text-[#39423e] hover:bg-[#f4f7f5]"><ArrowLeft className="mr-2 size-4" /> Previous</Button>
+            <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => { setError(''); setStep((current) => current - 1) }} className="h-12 rounded-lg border-[#d2dcd7] px-6 text-[#39423e] hover:bg-[#f4f7f5]"><ArrowLeft className="mr-2 size-4" /> {cmsValue(page, 'previousButton', 'Previous')}</Button>
             {step < steps.length - 1
-              ? <Button type="button" onClick={next} className="h-12 rounded-lg bg-[#052d1d] px-8 text-[15px] text-white hover:bg-[#0c7148]">Continue <ArrowRight className="ml-2 size-4" /></Button>
-              : <Button type="button" disabled={submitting} onClick={() => void submit()} className="h-12 rounded-lg bg-[#d2ad55] px-8 text-[15px] font-bold text-[#052d1d] shadow-sm hover:bg-[#e0c476] hover:shadow-md">{submitting ? <><LoaderCircle className="mr-2 size-4 animate-spin" /> Submitting</> : <><FileCheck2 className="mr-2 size-4" /> Submit application</>}</Button>}
+              ? <Button type="button" onClick={next} className="h-12 rounded-lg bg-[#052d1d] px-8 text-[15px] text-white hover:bg-[#0c7148]">{cmsValue(page, 'nextButton', 'Continue')} <ArrowRight className="ml-2 size-4" /></Button>
+              : <Button type="button" disabled={submitting} onClick={() => void submit()} className="h-12 rounded-lg bg-[#d2ad55] px-8 text-[15px] font-bold text-[#052d1d] shadow-sm hover:bg-[#e0c476] hover:shadow-md">{submitting ? <><LoaderCircle className="mr-2 size-4 animate-spin" /> {cmsValue(page, 'submittingText', 'Submitting')}</> : <><FileCheck2 className="mr-2 size-4" /> {cmsValue(page, 'submitButton', 'Submit application')}</>}</Button>}
           </footer>
         </section>
       </div>
@@ -246,8 +255,8 @@ function LocationDetails({ form, update, mode }: { form: FormState; update: (key
   return <div className="grid gap-5 sm:grid-cols-2 mt-4"><Field label="Country"><Input value={form.country} disabled className="h-12 rounded-lg bg-[#f4f7f5] border-[#cbd3ce] text-[#64706a]" /></Field><Field label="Province or region" required><Select value={form.province || null} onValueChange={(value) => update('province', String(value ?? ''))}><SelectTrigger className="h-12 w-full rounded-lg border-[#cbd3ce] focus:ring-[#0c7148]"><SelectValue>{form.province || 'Choose province or region'}</SelectValue></SelectTrigger><SelectContent>{provinceOptions.map((item) => <SelectItem value={item} key={item}>{item}</SelectItem>)}</SelectContent></Select></Field><Field label="District" required><Input value={form.district} onChange={(event) => update('district', event.target.value)} placeholder="District name" className="h-12 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field><Field label={mode === 'designation' ? 'Requested area' : 'City or area'} required><Input value={form.area} onChange={(event) => update('area', event.target.value)} placeholder="Town, tehsil or local area" className="h-12 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field><Field label="Complete residential address" required className="sm:col-span-2"><Textarea value={form.address} onChange={(event) => update('address', event.target.value)} placeholder="House, street, locality and postal details" className="min-h-28 rounded-lg border-[#cbd3ce] focus-visible:ring-[#0c7148]" /></Field></div>
 }
 
-function DocumentsStep({ files, setFiles, accepted, setAccepted }: { files: FileState; setFiles: React.Dispatch<React.SetStateAction<FileState>>; accepted: boolean; setAccepted: (value: boolean) => void }) {
-  return <div className="mt-4"><Alert className="mb-6 rounded-lg border-[#cfe0d5] bg-[#f1f7f3] px-4 py-3 text-[#052d1d]"><ShieldCheck className="size-4" /><AlertTitle>Document privacy</AlertTitle><AlertDescription>Upload clear images. Each file can be up to 5 MB and will remain pending until an authorized admin reviews it.</AlertDescription></Alert><div className="grid gap-4 sm:grid-cols-3"><FileUpload label="CNIC front" kind="cnic-front" file={files['cnic-front']} onChange={(file) => setFiles((current) => ({ ...current, 'cnic-front': file }))} /><FileUpload label="CNIC back" kind="cnic-back" file={files['cnic-back']} onChange={(file) => setFiles((current) => ({ ...current, 'cnic-back': file }))} /><FileUpload label="Profile photo" kind="profile-photo" file={files['profile-photo']} onChange={(file) => setFiles((current) => ({ ...current, 'profile-photo': file }))} /></div><div className="mt-8 flex items-start gap-3 rounded-lg border border-[#e2e8e4] bg-[#f9fafa] p-5"><Checkbox checked={accepted} onCheckedChange={(checked) => setAccepted(Boolean(checked))} className="mt-0.5 border-[#8d9992] data-[state=checked]:border-[#0c7148] data-[state=checked]:bg-[#0c7148]" id="application-terms" /><Label htmlFor="application-terms" className="cursor-pointer text-sm leading-6 text-[#39423e]">I confirm that the information is correct and I agree to the <Link className="font-semibold text-[#0c7148] underline" to="/legal/terms-and-conditions" target="_blank">terms and conditions</Link> and <Link className="font-semibold text-[#0c7148] underline" to="/legal/data-cnic-privacy-policy" target="_blank">CNIC privacy policy</Link>.</Label></div></div>
+function DocumentsStep({ page, files, setFiles, accepted, setAccepted }: { page: ReturnType<typeof useCmsPage>; files: FileState; setFiles: React.Dispatch<React.SetStateAction<FileState>>; accepted: boolean; setAccepted: (value: boolean) => void }) {
+  return <div className="mt-4"><Alert className="mb-6 rounded-lg border-[#cfe0d5] bg-[#f1f7f3] px-4 py-3 text-[#052d1d]"><ShieldCheck className="size-4" /><AlertTitle>{cmsValue(page, 'documentsAlertTitle', 'Document privacy')}</AlertTitle><AlertDescription>{cmsValue(page, 'documentsAlertText', 'Upload clear images. Each file can be up to 5 MB and will remain pending until an authorized admin reviews it.')}</AlertDescription></Alert><div className="grid gap-4 sm:grid-cols-3"><FileUpload label={cmsValue(page, 'cnicFrontLabel', 'CNIC front')} kind="cnic-front" file={files['cnic-front']} onChange={(file) => setFiles((current) => ({ ...current, 'cnic-front': file }))} /><FileUpload label={cmsValue(page, 'cnicBackLabel', 'CNIC back')} kind="cnic-back" file={files['cnic-back']} onChange={(file) => setFiles((current) => ({ ...current, 'cnic-back': file }))} /><FileUpload label={cmsValue(page, 'photoLabel', 'Profile photo')} kind="profile-photo" file={files['profile-photo']} onChange={(file) => setFiles((current) => ({ ...current, 'profile-photo': file }))} /></div><div className="mt-8 flex items-start gap-3 rounded-lg border border-[#e2e8e4] bg-[#f9fafa] p-5"><Checkbox checked={accepted} onCheckedChange={(checked) => setAccepted(Boolean(checked))} className="mt-0.5 border-[#8d9992] data-[state=checked]:border-[#0c7148] data-[state=checked]:bg-[#0c7148]" id="application-terms" /><Label htmlFor="application-terms" className="cursor-pointer text-sm leading-6 text-[#39423e]">{cmsValue(page, 'termsIntro', 'I confirm that the information is correct and I agree to the')} <Link className="font-semibold text-[#0c7148] underline" to="/legal/terms-and-conditions" target="_blank">{cmsValue(page, 'termsLabel', 'terms and conditions')}</Link> and <Link className="font-semibold text-[#0c7148] underline" to="/legal/data-cnic-privacy-policy" target="_blank">{cmsValue(page, 'privacyLabel', 'CNIC privacy policy')}</Link>.</Label></div></div>
 }
 
 function FileUpload({ label, kind, file, onChange }: { label: string; kind: string; file: File | null; onChange: (file: File | null) => void }) {
@@ -357,16 +366,3 @@ function PaymentInfoRow({ label, value }: { label: string; value?: string | null
   return <div className="rounded-lg border border-[#e2e8e4] bg-[#fafcfb] px-4 py-3"><span className="text-[9px] font-bold uppercase tracking-wider text-[#7b8680]">{label}</span><b className="mt-1 block break-all text-sm text-[#052d1d]">{value}</b></div>
 }
 
-function stepTitle(mode: ApplicationMode, step: number) {
-  const titles = mode === 'membership'
-    ? ['Tell us about yourself', 'Add your address', 'Upload verification documents']
-    : ['Choose a leadership role', 'Tell us about yourself', 'Confirm the requested area', 'Upload verification documents']
-  return titles[step]
-}
-
-function stepDescription(mode: ApplicationMode, step: number) {
-  const descriptions = mode === 'membership'
-    ? ['Use the same information that appears on your identity document.', 'This helps DPO route your application to the right regional team.', 'Clear documents help the admin team complete verification without delays.']
-    : ['Select an available designation and share your relevant experience.', 'Use accurate identity and contact information for administrative review.', 'Designation availability is checked by district and local area.', 'The admin team will verify each document before making a decision.']
-  return descriptions[step]
-}

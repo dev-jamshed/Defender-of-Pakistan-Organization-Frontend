@@ -4079,8 +4079,11 @@ function cmsEditorConfig(slug: string) {
       image: '',
       customFields: [
         { key: 'rolesLabel', label: 'Roles Label' },
+        { key: 'rolesValue', label: 'Roles Number' },
         { key: 'feeLabel', label: 'Fee Label' },
+        { key: 'feeValue', label: 'Fee Amount' },
         { key: 'durationLabel', label: 'Duration Label' },
+        { key: 'durationValue', label: 'Duration Value' },
       ],
     },
     'designations-standard': {
@@ -4226,8 +4229,80 @@ function cmsEditorConfig(slug: string) {
       image: 'Background Image',
       buttons: true,
     },
+    'membership-application': {
+      ...defaults,
+      title: 'Page Hero Title',
+      eyebrow: 'Small Heading',
+      text: 'Page Hero Text',
+      image: 'Hero Image',
+      customFields: applicationFormCmsFields('membership'),
+    },
+    'member-services': {
+      ...defaults,
+      title: 'Page Hero Title',
+      eyebrow: 'Small Heading',
+      text: 'Page Hero Text',
+      image: 'Hero Image',
+      customFields: [{ key: 'index', label: 'Page Index' }],
+    },
+    'member-services-renewal': {
+      ...defaults,
+      title: 'Renewal Panel Title',
+      text: 'Renewal Panel Text',
+      image: '',
+      customFields: [
+        { key: 'identifierLabel', label: 'Identifier Field Label' },
+        { key: 'identifierPlaceholder', label: 'Identifier Placeholder' },
+        { key: 'expiryLabel', label: 'Expiry Date Label' },
+        { key: 'documentLabel', label: 'Document Upload Label' },
+        { key: 'documentName', label: 'Uploaded Document Name' },
+        { key: 'submitButton', label: 'Submit Button Text' },
+        { key: 'secureNote', label: 'Secure Note', multiline: true },
+        { key: 'notEligibleMessage', label: 'Not Eligible Message', multiline: true },
+        { key: 'successTitle', label: 'Success Title' },
+        { key: 'successPrefix', label: 'Success Reference Label' },
+        { key: 'successText', label: 'Success Text', multiline: true },
+        { key: 'errorTitle', label: 'Error Title' },
+        { key: 'errorText', label: 'Error Text', multiline: true },
+      ],
+    },
+    'designation-application': {
+      ...defaults,
+      title: 'Page Hero Title',
+      eyebrow: 'Small Heading',
+      text: 'Page Hero Text',
+      image: 'Hero Image',
+      customFields: applicationFormCmsFields('designation'),
+    },
   }
   return configs[slug] ?? defaults
+}
+
+function applicationFormCmsFields(mode: 'membership' | 'designation') {
+  return [
+    { key: 'index', label: 'Page Index' },
+    { key: 'progressLabel', label: 'Progress Label' },
+    { key: 'formTitle', label: 'Form Title' },
+    { key: 'formText', label: 'Form Help Text', multiline: true },
+    { key: 'privacyNote', label: 'Privacy Note', multiline: true },
+    { key: 'stepPrefix', label: 'Step Prefix' },
+    { key: 'formSteps', label: 'Step Names (one per line)', multiline: true },
+    { key: 'stepTitles', label: 'Step Titles (one per line)', multiline: true },
+    { key: 'stepDescriptions', label: 'Step Descriptions (one per line)', multiline: true },
+    { key: 'previousButton', label: 'Previous Button' },
+    { key: 'nextButton', label: 'Next Button' },
+    { key: 'submitButton', label: 'Submit Button' },
+    { key: 'submittingText', label: 'Submitting Text' },
+    { key: 'documentsAlertTitle', label: 'Documents Alert Title' },
+    { key: 'documentsAlertText', label: 'Documents Alert Text', multiline: true },
+    { key: 'cnicFrontLabel', label: 'CNIC Front Upload Label' },
+    { key: 'cnicBackLabel', label: 'CNIC Back Upload Label' },
+    { key: 'photoLabel', label: 'Photo Upload Label' },
+    { key: 'termsIntro', label: 'Terms Text Start', multiline: true },
+    { key: 'termsLabel', label: 'Terms Link Label' },
+    { key: 'privacyLabel', label: 'Privacy Link Label' },
+    ...(mode === 'designation' ? [{ key: 'designationNote', label: 'Designation Note' }] : []),
+  ]
 }
 
 function CmsContentEditor({
@@ -5120,7 +5195,8 @@ function cmsSectionLabel(page: DpoRecord) {
     gallery: 'Gallery Page',
     legal: 'Legal Page',
     contact: 'Contact Page',
-    'member-services': 'Member Services Page',
+    'member-services': 'Member Services Hero',
+    'member-services-renewal': 'Renewal',
     'membership-application': 'Membership Application',
     'designation-application': 'Designation Application',
     'application-status': 'Application Status',

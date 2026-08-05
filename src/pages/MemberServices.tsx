@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { fileToDocument, postPublic, publicApi } from '@/lib/publicApi'
 import PublicLayout from '../components/public/PublicLayout'
 import { PageIntro } from '../components/public/PublicUi'
-import { cmsImage, cmsText, cmsTitle, useCmsPage } from '../lib/publicCms'
+import { cmsImage, cmsText, cmsTitle, cmsValue, useCmsPage } from '../lib/publicCms'
 
 type Notice = { type: 'success' | 'error'; title: string; text: string } | null
 type ServiceTabValue = 'verify' | 'renewal' | 'card' | 'track-complaint' | 'complaint'
@@ -172,6 +172,7 @@ function VerifyMemberForm() {
 }
 
 function RenewalForm() {
+  const page = useCmsPage('member-services-renewal')
   const [membershipNumber, setMembershipNumber] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -181,19 +182,19 @@ function RenewalForm() {
     event.preventDefault(); setLoading(true); setNotice(null)
     try {
       const lookup = await publicApi<{ eligible: boolean }>(`/public/membership/renewal/${encodeURIComponent(membershipNumber)}`)
-      if (!lookup.eligible) throw new Error('This membership is not eligible for renewal.')
-      const documents = file ? [await fileToDocument(file, 'supporting-document', 'Renewal Supporting Document')] : []
+      if (!lookup.eligible) throw new Error(cmsValue(page, 'notEligibleMessage', 'This membership is not eligible for renewal.'))
+      const documents = file ? [await fileToDocument(file, 'supporting-document', cmsValue(page, 'documentName', 'Renewal Supporting Document'))] : []
       const result = await postPublic<{ renewalNumber: string }>('/public/membership/renewals', { membershipNumber, requestedExpiryDate: expiryDate || null, documents })
-      setNotice({ type: 'success', title: 'Renewal request submitted', text: `Reference: ${result.renewalNumber}. Payment remains pending until confirmed by DPO.` })
-    } catch (error) { setNotice({ type: 'error', title: 'Renewal could not be submitted', text: error instanceof Error ? error.message : 'Please check the membership number.' }) }
+      setNotice({ type: 'success', title: cmsValue(page, 'successTitle', 'Renewal request submitted'), text: `${cmsValue(page, 'successPrefix', 'Reference')}: ${result.renewalNumber}. ${cmsValue(page, 'successText', 'Payment remains pending until confirmed by DPO.')}` })
+    } catch (error) { setNotice({ type: 'error', title: cmsValue(page, 'errorTitle', 'Renewal could not be submitted'), text: error instanceof Error ? error.message : cmsValue(page, 'errorText', 'Please check the membership number.') }) }
     finally { setLoading(false) }
   }
-  return <ServicePanel icon={<RefreshCw />} title="Request membership renewal" text="Active or expired members can send a renewal request for admin review.">
+  return <ServicePanel icon={<RefreshCw />} title={cmsTitle(page, 'Request membership renewal')} text={cmsText(page, 'Active or expired members can send a renewal request for admin review.')} note={cmsValue(page, 'secureNote', 'Securely recorded for authorized administrative review.')}>
     <form onSubmit={(event) => void submit(event)} className="grid gap-5 sm:grid-cols-2">
-      <FormField label="Membership number"><Input required value={membershipNumber} onChange={(event) => setMembershipNumber(event.target.value)} placeholder="DPO-2026-1001" className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
-      <FormField label="Requested expiry date"><Input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
-      <FormField label="Supporting document" className="sm:col-span-2"><Input type="file" accept="image/*,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb] py-2 file:mr-3 file:rounded file:border-0 file:bg-[#eaf4f0] file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-[#0b7148]" /></FormField>
-      <div className="sm:col-span-2"><Button disabled={loading} className="h-11 rounded-[6px] bg-[#052d1d] px-6 text-white shadow-[0_4px_12px_rgba(5,45,29,.2)] hover:bg-[#0c7148]">{loading ? <LoaderCircle className="animate-spin" /> : <RefreshCw className="size-4" />}<span className="ml-1.5">Submit renewal</span></Button></div>
+      <FormField label={cmsValue(page, 'identifierLabel', 'Membership number')}><Input required value={membershipNumber} onChange={(event) => setMembershipNumber(event.target.value)} placeholder={cmsValue(page, 'identifierPlaceholder', 'DPO-2026-1001')} className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
+      <FormField label={cmsValue(page, 'expiryLabel', 'Requested expiry date')}><Input type="date" value={expiryDate} onChange={(event) => setExpiryDate(event.target.value)} className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb]" /></FormField>
+      <FormField label={cmsValue(page, 'documentLabel', 'Supporting document')} className="sm:col-span-2"><Input type="file" accept="image/*,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="h-11 rounded-[6px] border-[#c9d5cf] bg-[#fafcfb] py-2 file:mr-3 file:rounded file:border-0 file:bg-[#eaf4f0] file:px-3 file:py-1 file:text-[11px] file:font-semibold file:text-[#0b7148]" /></FormField>
+      <div className="sm:col-span-2"><Button disabled={loading} className="h-11 rounded-[6px] bg-[#052d1d] px-6 text-white shadow-[0_4px_12px_rgba(5,45,29,.2)] hover:bg-[#0c7148]">{loading ? <LoaderCircle className="animate-spin" /> : <RefreshCw className="size-4" />}<span className="ml-1.5">{cmsValue(page, 'submitButton', 'Submit renewal')}</span></Button></div>
     </form>
     <NoticeBlock notice={notice} />
   </ServicePanel>
@@ -291,7 +292,7 @@ function ComplaintForm() {
   </ServicePanel>
 }
 
-function ServicePanel({ icon, title, text, children }: { icon: ReactNode; title: string; text: string; children: ReactNode }) {
+function ServicePanel({ icon, title, text, note = 'Securely recorded for authorized administrative review.', children }: { icon: ReactNode; title: string; text: string; note?: string; children: ReactNode }) {
   return (
     <div className="grid gap-8 p-6 sm:p-9 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-12 lg:p-12 xl:gap-16">
       {/* Left info column */}
@@ -307,7 +308,7 @@ function ServicePanel({ icon, title, text, children }: { icon: ReactNode; title:
         <p className="mt-3 text-xs leading-6 text-[#64706a]">{text}</p>
         <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-[#e0ead3] bg-[#f6fbf3] px-3.5 py-3 text-[10px] leading-5 text-[#4d6b52]">
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#0c7148]" />
-          <span>Securely recorded for authorized administrative review.</span>
+          <span>{note}</span>
         </div>
       </div>
       {/* Right form column */}
